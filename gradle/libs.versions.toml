@@ -1,0 +1,60 @@
+[versions]
+kotlin = "2.1.20"
+kotlinxSerialization = "1.8.0"
+kotlinxCoroutines = "1.10.2"
+kotlinxDatetime = "0.6.2"
+kotlinxImmutableCollections = "0.3.8"
+
+kotest = "6.0.0.M3"
+arrow = "2.0.1"
+kotest-arrow = "2.0.0"
+clikt = "5.0.3"
+okio = "3.11.0"
+
+[libraries]
+kotlinxSerializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinxCoroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinxDatetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
+kotlinxImmutableCollections = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "kotlinxImmutableCollections" }
+
+kotest-framework = { group = "io.kotest", name = "kotest-framework-engine", version.ref = "kotest" }
+kotest-assertion = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
+kotest-property = { group = "io.kotest", name = "kotest-property", version.ref = "kotest" }
+kotest-arrow = { group = "io.kotest.extensions", name = "kotest-assertions-arrow", version.ref = "kotest-arrow" }
+
+arrow-core = { group = "io.arrow-kt", name = "arrow-core", version.ref = "arrow" }
+arrow-fx-coroutines = { group = "io.arrow-kt", name = "arrow-fx-coroutines", version.ref = "arrow" }
+
+clikt = { group = "com.github.ajalt.clikt", name = "clikt", version.ref = "clikt" }
+okio = { group = "com.squareup.okio", name = "okio", version.ref = "okio" }
+okio-ffs = { group = "com.squareup.okio", name = "okio-fakefilesystem", version.ref = "okio" }
+
+[bundles]
+kotlinx = [
+  "kotlinxSerializationJson",
+  "kotlinxCoroutines",
+  "kotlinxDatetime",
+  "kotlinxImmutableCollections",
+]
+
+kotest = [
+  "kotest-framework",
+  "kotest-assertion",
+  "kotest-property",
+  "kotest-arrow",
+]
+
+arrow = [
+  "arrow-core",
+  "arrow-fx-coroutines",
+]
+
+okio = [
+  "okio",
+  "okio-ffs",
+]
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotest = { id = "io.kotest.multiplatform", version.ref = "kotest" }
