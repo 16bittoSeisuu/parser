@@ -6,6 +6,9 @@ import arrow.core.Either
 import arrow.core.NonEmptyList
 import arrow.core.getOrElse
 import arrow.core.raise.either
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import net.japanesehunters.util.collection.Cursor
 import net.japanesehunters.util.collection.Zipper
@@ -108,6 +111,26 @@ infix fun <
     )
   }
 
+/**
+ * Executes multiple parsers asynchronously on the same input and
+ * selects the most appropriate parse result based on the given comparator.
+ *
+ * The method handles results as follows:
+ * - If a critical error occurs during any parsing, it is immediately returned.
+ * - If no critical errors occur and at least one parser succeeds,
+ *   the most optimal result (determined by using the comparator) is returned
+ *   as a [Ok].
+ * - If no critical errors occur and none of the parsers succeed, a list of
+ *   failed parsers paired with their respective errors is returned; type:
+ *   `List<ContinuationParser<T, C, E, R>, E>`
+ *
+ * @param a The primary parser to execute.
+ * @param rest Additional parsers to execute simultaneously with `a`.
+ * @param cmp A comparator to determine the most optimal parse result
+ *            from successful parsers.
+ * @return A parser that provides the result of the most optimal parse
+ *         or an error if parsing fails.
+ */
 fun <
   T : Any,
   C : Any,
@@ -120,32 +143,48 @@ fun <
 ): ContinuationParser<T, C, Any, R> =
   object : ContinuationParser<T, C, Any, R> {
     context(ctx: C)
-    override suspend fun parse(input: Cursor<T>): Continuation<T, C, Any, R> {
-      val res = mutableListOf<Ok<T, C, R>>()
-      val err = mutableListOf<Pair<ContinuationParser<T, C, E, R>, E>>()
+    override suspend fun parse(input: Cursor<T>): Continuation<T, C, Any, R> =
+      try {
+        coroutineScope {
+          val res = mutableListOf<Ok<T, C, R>>()
+          val err = mutableListOf<Pair<ContinuationParser<T, C, E, R>, E>>()
 
-      (listOf(a) + rest.toList()).forEach { parser ->
-        yield()
-        parser
-          .parse(input)
-          .fold(
-            { result, cursor -> res += Done(result, cursor) },
-            { result, zip, ctx -> res += Cont(result, zip, ctx) },
-            {
-              when (it) {
-                is CriticalParseError -> return@parse Err(it)
-                else -> err += parser to it
+          (listOf(a) + rest.toList())
+            .map { parser ->
+              yield()
+              launch {
+                parser
+                  .parse(input)
+                  .fold(
+                    { result, cur -> res += Done(result, cur) },
+                    { result, zip, ctx -> res += Cont(result, zip, ctx) },
+                    { error ->
+                      when (error) {
+                        is CriticalParseError ->
+                          throw CriticalParseErrorException(error)
+
+                        else ->
+                          err += parser to error
+                      }
+                    },
+                  )
               }
-            },
-          )
+            }.joinAll()
+          return@coroutineScope res
+            .maxWithOrNull { a, b -> cmp.compare(a.result, b.result) }
+            ?: Err(err.toList())
+        }
+      } catch (e: CriticalParseErrorException) {
+        @Suppress("UNCHECKED_CAST")
+        Err(e.err as E)
       }
-      return res
-        .maxWithOrNull { a, b -> cmp.compare(a.result, b.result) }
-        ?: Err(NoParserSucceeded(input, err))
-    }
 
     override fun toString() = "select($a, ${rest.joinToString(", ")})"
   }
+
+private data class CriticalParseErrorException(
+  val err: Any,
+) : Exception()
 
 /**
  * Repeats the execution of this parser a specified number of times.
@@ -457,11 +496,6 @@ inline fun <
 
     override fun toString() = this@complete.toString()
   }
-
-data class NoParserSucceeded<Tok : Any, Ctx : Any, Err : Any, R>(
-  val input: Cursor<Tok>,
-  val errors: Collection<Pair<ContinuationParser<Tok, Ctx, Err, R>, Err>>,
-)
 
 // TODO: add continuation 'critical error' then remove this
 interface CriticalParseError
