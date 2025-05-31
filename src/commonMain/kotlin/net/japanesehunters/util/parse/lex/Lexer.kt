@@ -148,7 +148,7 @@ class LexingDsl<Err : Any>(
     Any,
     E,
     CharSequence,
-    >.orFail(
+  >.orFail(
     onError: (at: Cursor<Char>) -> Err,
   ): String = withError(onError) { +this@orFail }
 
@@ -162,6 +162,18 @@ class LexingDsl<Err : Any>(
     val res = this@unaryPlus.parse()
     tokensInternal += res.toList()
     return res.toString()
+  }
+
+  @ParsingDslMarker
+  suspend operator fun ContinuationParser<
+    Char,
+    Any,
+    Err,
+    Iterable<CharSequence>,
+  >.unaryPlus(): List<String> {
+    val res = this@unaryPlus.parse()
+    tokensInternal += res.flatMap { it.toList() }
+    return res.map { it.toString() }
   }
 
   // TODO: fix repetition
