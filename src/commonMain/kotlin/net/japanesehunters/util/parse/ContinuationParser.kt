@@ -118,36 +118,33 @@ fun <
   vararg rest: ContinuationParser<T, C, E, R>,
   cmp: Comparator<R>,
 ): ContinuationParser<T, C, Any, R> =
-  parser("select($a, ${rest.joinToString(", ")})") {
-    val res = mutableListOf<R>()
-    val err = mutableListOf<Pair<ContinuationParser<T, C, E, R>, E>>()
+  object : ContinuationParser<T, C, Any, R> {
+    context(ctx: C)
+    override suspend fun parse(input: Cursor<T>): Continuation<T, C, Any, R> {
+      val res = mutableListOf<Ok<T, C, R>>()
+      val err = mutableListOf<Pair<ContinuationParser<T, C, E, R>, E>>()
 
-    catch { a.parse() }
-      .fold(
-        {
-          if (it is CriticalParseError) {
-            fail(it)
-          }
-          err += a to it
-        },
-        { res += it },
-      )
-    rest.forEach { parser ->
-      catch { parser.parse() }
-        .fold(
-          {
-            if (it is CriticalParseError) {
-              fail(it)
-            }
-            err += parser to it
-          },
-          { res += it },
-        )
+      (listOf(a) + rest.toList()).forEach { parser ->
+        yield()
+        parser
+          .parse(input)
+          .fold(
+            { result, cursor -> res += Done(result, cursor) },
+            { result, zip, ctx -> res += Cont(result, zip, ctx) },
+            {
+              when (it) {
+                is CriticalParseError -> return@parse Err(it)
+                else -> err += parser to it
+              }
+            },
+          )
+      }
+      return res
+        .maxWithOrNull { a, b -> cmp.compare(a.result, b.result) }
+        ?: Err(NoParserSucceeded(input, err))
     }
-    if (res.isEmpty()) {
-      fail(NoParserSucceeded(startingCursor, err.toList()))
-    }
-    res.maxWith(cmp)
+
+    override fun toString() = "select($a, ${rest.joinToString(", ")})"
   }
 
 /**
@@ -466,6 +463,7 @@ data class NoParserSucceeded<Tok : Any, Ctx : Any, Err : Any, R>(
   val errors: Collection<Pair<ContinuationParser<Tok, Ctx, Err, R>, Err>>,
 )
 
+// TODO: add continuation 'critical error' then remove this
 interface CriticalParseError
 
 inline fun <Tok : Any, Ctx : Any, Err : Any, R> parser(
