@@ -6,7 +6,7 @@ import net.japanesehunters.util.collection.Zipper
 inline fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R,
   U,
 > Continuation<T, C, E, R>.fold(
@@ -21,7 +21,7 @@ inline fun <
 inline fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R,
   U,
 > Continuation<T, C, E, R>.fold(
@@ -38,7 +38,7 @@ inline fun <
 inline fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R1,
   R2,
 > Continuation<T, C, E, R1>.map(
@@ -53,8 +53,8 @@ inline fun <
 inline fun <
   T : Any,
   C : Any,
-  E1 : Any,
-  E2 : Any,
+  E1,
+  E2,
   R,
 > Continuation<T, C, E1, R>.mapErr(
   onOk: (E1) -> E2,

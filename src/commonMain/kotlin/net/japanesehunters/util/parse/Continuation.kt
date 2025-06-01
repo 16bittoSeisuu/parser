@@ -6,7 +6,7 @@ import net.japanesehunters.util.collection.Zipper
 sealed interface Continuation<
   out Tok : Any,
   out Ctx : Any,
-  out Err : Any,
+  out Err,
   out Res,
 >
 
@@ -26,6 +26,6 @@ data class Done<out Tok : Any, out Res>(
   val cursor: Cursor<Tok>,
 ) : Ok<Tok, Nothing, Res>
 
-value class Err<out Err : Any>(
+value class Err<out Err>(
   val error: Err,
 ) : Continuation<Nothing, Nothing, Err, Nothing>
