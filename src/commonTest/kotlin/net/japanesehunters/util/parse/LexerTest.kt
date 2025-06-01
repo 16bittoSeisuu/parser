@@ -10,6 +10,7 @@ import net.japanesehunters.util.collection.cursorAt
 import net.japanesehunters.util.parse.lex.concat
 import net.japanesehunters.util.parse.lex.ignoreCase
 import net.japanesehunters.util.parse.lex.lexer
+import net.japanesehunters.util.parse.lex.orFail
 import net.japanesehunters.util.parse.lex.parse
 
 class LexerTest : StringSpec() {
@@ -194,7 +195,7 @@ class LexerTest : StringSpec() {
     }
   }
 
-  suspend inline fun <reified E> ContinuationParser<
+  suspend inline fun <reified E : Any> ContinuationParser<
     Char,
     Any,
     Any,
@@ -239,7 +240,7 @@ class LexerTest : StringSpec() {
     context(
       parser: ContinuationParser<Char, Any, Any, Any>
     )
-    suspend inline fun <reified E> String.shouldFail(
+    suspend inline fun <reified E : Any> String.shouldFail(
       crossinline block: (E) -> Unit = { },
     ) {
       this@shouldFail {
