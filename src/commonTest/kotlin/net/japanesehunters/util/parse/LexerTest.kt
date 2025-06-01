@@ -194,7 +194,7 @@ class LexerTest : StringSpec() {
     }
   }
 
-  suspend inline fun <reified E : Any> ContinuationParser<
+  suspend inline fun <reified E> ContinuationParser<
     Char,
     Any,
     Any,
@@ -239,7 +239,7 @@ class LexerTest : StringSpec() {
     context(
       parser: ContinuationParser<Char, Any, Any, Any>
     )
-    suspend inline fun <reified E : Any> String.shouldFail(
+    suspend inline fun <reified E> String.shouldFail(
       crossinline block: (E) -> Unit = { },
     ) {
       this@shouldFail {

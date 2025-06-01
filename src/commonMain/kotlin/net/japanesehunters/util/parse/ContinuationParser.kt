@@ -2,21 +2,15 @@
 
 package net.japanesehunters.util.parse
 
-import arrow.core.Either
 import arrow.core.NonEmptyList
 import arrow.core.getOrElse
-import arrow.core.raise.either
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import net.japanesehunters.util.collection.Cursor
-import net.japanesehunters.util.collection.Zipper
 import net.japanesehunters.util.collection.fold
-import net.japanesehunters.util.parse.ParsingDsl.SimpleErrorProvider
 import kotlin.contracts.ExperimentalContracts
-import kotlin.contracts.InvocationKind
-import kotlin.contracts.contract
 
 /**
  * Represents a parser that processes a sequence of tokens and produces a
@@ -40,7 +34,7 @@ typealias ContinuationParser<Tok, Ctx, Err, Res> =
 infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O1,
   O2,
 > ContinuationParser<T, C, E, O1>.then(
@@ -48,9 +42,9 @@ infix fun <
 ): ContinuationParser<T, C, E, Pair<O1, O2>> =
   parser("${this@then} then $other") {
     yield()
-    val first = this@then.parse()
+    val first = +this@then
     yield()
-    val second = other.parse()
+    val second = +other
     yield()
     first to second
   }
@@ -61,7 +55,7 @@ infix fun <
 operator fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O1,
   O2,
 > ContinuationParser<T, C, E, O1>.plus(
@@ -83,8 +77,8 @@ operator fun <
 infix fun <
   T : Any,
   C : Any,
-  E1 : Any,
-  E2 : Any,
+  E1,
+  E2,
   O1 : O2,
   O2,
 > ContinuationParser<T, C, E1, O1>.or(
@@ -93,12 +87,12 @@ infix fun <
   parser("$this or $other") {
     yield()
     catch {
-      this@or.parse()
+      +this@or
     }.fold(
       { err1 ->
         yield()
         catch {
-          other.parse()
+          +other
         }.fold(
           { err2 ->
             yield()
@@ -134,16 +128,16 @@ infix fun <
 fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R,
 > select(
   a: ContinuationParser<T, C, E, R>,
   vararg rest: ContinuationParser<T, C, E, R>,
   cmp: Comparator<R>,
-): ContinuationParser<T, C, Any, R> =
-  object : ContinuationParser<T, C, Any, R> {
+): ContinuationParser<T, C, Any?, R> =
+  object : ContinuationParser<T, C, Any?, R> {
     context(ctx: C)
-    override suspend fun parse(input: Cursor<T>): Continuation<T, C, Any, R> =
+    override suspend fun parse(input: Cursor<T>): Continuation<T, C, Any?, R> =
       try {
         coroutineScope {
           val res = mutableListOf<Ok<T, C, R>>()
@@ -196,7 +190,7 @@ private data class CriticalParseErrorException(
 infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.repeat(
   repeat: Int,
@@ -205,7 +199,7 @@ infix fun <
     (0..<repeat)
       .map {
         yield()
-        this@repeat.parse()
+        +this@repeat
       }
   }
 
@@ -215,7 +209,7 @@ infix fun <
 operator fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.times(
   repeat: Int,
@@ -238,7 +232,7 @@ operator fun <
 infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.repeat(
   repeat: IntRange,
@@ -247,12 +241,12 @@ infix fun <
     "'$this' repeat at least ${repeat.first} times " +
       "and up to ${repeat.last} times",
   ) {
-    val required = this@repeat.repeat(repeat.first).parse()
+    val required = +this@repeat.repeat(repeat.first)
     val optional = mutableListOf<O>()
     @Suppress("unused")
     for (i in repeat.first..<repeat.last) {
       yield()
-      optional += option { this@repeat.parse() } ?: break
+      optional += option { +this@repeat } ?: break
     }
     required + optional
   }
@@ -263,7 +257,7 @@ infix fun <
 operator fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.times(
   repeat: IntRange,
@@ -280,7 +274,7 @@ operator fun <
 infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.repeat(
   @Suppress("unused") option: RepeatOption.MANY,
@@ -290,7 +284,7 @@ infix fun <
     while (true) {
       yield()
       ret +=
-        catch { this@repeat.parse() }
+        catch { +this@repeat }
           .getOrElse { err ->
             if (err is CriticalParseError) {
               fail(err)
@@ -308,7 +302,7 @@ infix fun <
 operator fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.times(
   @Suppress("unused") option: RepeatOption.MANY,
@@ -326,15 +320,15 @@ operator fun <
 infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.repeat(
   @Suppress("unused") option: RepeatOption.SOME,
 ): ContinuationParser<T, C, E, NonEmptyList<O>> =
   parser("'$this' repeat many times but at least one must succeed") {
     yield()
-    val first = this@repeat.parse()
-    val rest = this@repeat.repeat(many).parse()
+    val first = +this@repeat
+    val rest = +this@repeat.repeat(many)
     NonEmptyList(first, rest)
   }
 
@@ -344,7 +338,7 @@ infix fun <
 operator fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O,
 > ContinuationParser<T, C, E, O>.times(
   @Suppress("unused") option: RepeatOption.SOME,
@@ -363,7 +357,7 @@ sealed interface RepeatOption {
 operator fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   O : Any,
 > ContinuationParser<T, C, E, O>.not(): ContinuationParser<T, C, O, E> =
   object : ContinuationParser<T, C, O, E> {
@@ -392,7 +386,7 @@ operator fun <
 inline infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R1,
   R2,
 > ContinuationParser<T, C, E, R1>.map(
@@ -400,7 +394,7 @@ inline infix fun <
 ): ContinuationParser<T, C, E, R2> =
   parser("$this") {
     yield()
-    this@map.parse().let(f)
+    (+this@map).let(f)
   }
 
 /**
@@ -412,8 +406,8 @@ inline infix fun <
 inline infix fun <
   T : Any,
   C : Any,
-  E1 : Any,
-  E2 : Any,
+  E1,
+  E2,
   R,
 > ContinuationParser<T, C, E1, R>.mapErr(
   crossinline f: (E1) -> E2,
@@ -421,7 +415,7 @@ inline infix fun <
   parser("$this") {
     catch {
       yield()
-      this@mapErr.parse()
+      +this@mapErr
     }.fold(
       ifLeft = { err -> fail(f(err)) },
       ifRight = { it },
@@ -437,7 +431,7 @@ inline infix fun <
 inline infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R,
 > ContinuationParser<T, C, E, R>.onOk(
   crossinline f: (R) -> Unit,
@@ -456,7 +450,7 @@ inline infix fun <
 inline infix fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R,
 > ContinuationParser<T, C, E, R>.onErr(
   crossinline f: (E) -> Unit,
@@ -479,7 +473,7 @@ inline infix fun <
 inline fun <
   T : Any,
   C : Any,
-  E : Any,
+  E,
   R,
 > ContinuationParser<T, C, E, R>.complete(
   crossinline onError: (E) -> Nothing,
@@ -499,459 +493,3 @@ inline fun <
 
 // TODO: add continuation 'critical error' then remove this
 interface CriticalParseError
-
-inline fun <Tok : Any, Ctx : Any, Err : Any, R> parser(
-  name: String,
-  crossinline block:
-    suspend ParsingDsl<Tok, Ctx, Err>.(
-      ctxTypeInfer: Ctx,
-    ) -> R,
-) = object : ContinuationParser<Tok, Ctx, Err, R> {
-  context(ctx: Ctx)
-  override suspend fun parse(
-    input: Cursor<Tok>,
-  ): Continuation<Tok, Ctx, Err, R> {
-    val scope = ParsingDsl<Tok, Ctx, Err>(input, ctx, null)
-    val out =
-      try {
-        scope.block(ctx)
-      } catch (e: ParsingDsl.ParsingDslRaise) {
-        @Suppress("UNCHECKED_CAST")
-        return Err(e.err as Err)
-      }
-    return scope.cursor.fold(
-      onOutOfBounds = { cursor -> Done(out, cursor) },
-      onZipper = { rem -> Cont(out, rem, scope.ctx) },
-    )
-  }
-
-  override fun toString() = name
-}
-
-@DslMarker
-annotation class ParsingDslMarker
-
-// TODO: Document
-open class ParsingDsl<
-  Tok : Any,
-  Ctx : Any,
-  Err : Any,
->(
-  input: Cursor<Tok>,
-  context: Ctx,
-  private val parent: ParsingDsl<Tok, Ctx, Err>?,
-) {
-  @ParsingDslMarker
-  val tokens: List<Tok> get() = tokensInternal.toList()
-  internal val tokensInternal: MutableList<Tok> = mutableListOf()
-    get() = parent?.tokensInternal ?: field
-
-  @ParsingDslMarker
-  val startingCursor: Cursor<Tok> = input
-
-  @ParsingDslMarker
-  var cursor: Cursor<Tok> = input
-    get() {
-      return parent?.cursor ?: field
-    }
-    internal set(value) {
-      parent?.cursor = value
-      field = value
-    }
-
-  @ParsingDslMarker
-  var ctx = context
-    get() {
-      return parent?.ctx ?: field
-    }
-    set(value) {
-      parent?.ctx = value
-      field = value
-    }
-
-  @ParsingDslMarker
-  fun fail(error: Err): Nothing = throw ParsingDslRaise(error)
-
-  data class ParsingDslRaise(
-    val err: Any,
-  ) : Exception()
-
-  @ParsingDslMarker
-  suspend infix fun Cursor<Tok>.zipperOrFail(onError: () -> Err) =
-    withError(onError) { this@zipperOrFail.zipperOrFail() }
-
-  suspend infix fun Cursor<Tok>.zipperOrFail(onError: (Cursor<Tok>) -> Err) =
-    withError(onError) { this@zipperOrFail.zipperOrFail() }
-
-  @ParsingDslMarker
-  suspend infix fun Tok.orFail(onError: () -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun Tok.orFail(onError: (Cursor<Tok>) -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun Iterable<Tok>.orFail(onError: () -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun Iterable<Tok>.orFail(onError: (Cursor<Tok>) -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun ((Tok) -> Boolean).orFail(onError: () -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun ((Tok) -> Boolean).orFail(onError: (Cursor<Tok>) -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun (
-  (rest: Iterable<Tok>) -> RestMatchResult
-  ).orFail(
-    onError: () -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun (
-  (Iterable<Tok>) -> RestMatchResult
-  ).orFail(
-    onError: (Cursor<Tok>) -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  sealed interface RestMatchResult {
-    val proceed: Int
-  }
-
-  value class Ok(
-    override val proceed: Int,
-  ) : RestMatchResult
-
-  value class Err(
-    override val proceed: Int,
-  ) : RestMatchResult
-
-  @ParsingDslMarker
-  suspend infix fun Parser<Tok, Ctx, Tok>.orFail(onError: () -> Err) =
-    withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun Parser<Tok, Ctx, Tok>.orFail(
-    onError: (Cursor<Tok>) -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
-    onError: () -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
-    onError: (Cursor<Tok>) -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun <E : Any> ContinuationParser<
-    Tok,
-    Ctx,
-    E,
-    Tok,
-  >.orFail(
-    onError: () -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun <E : Any> ContinuationParser<Tok, Ctx, E, Tok>.orFail(
-    onError: (Cursor<Tok>) -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun <E : Any> ContinuationParser<
-    Tok,
-    Ctx,
-    E,
-    Iterable<Tok>,
-  >.orFail(
-    onError: () -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend infix fun <E : Any> ContinuationParser<
-    Tok,
-    Ctx,
-    E,
-    Iterable<Tok>,
-  >.orFail(
-    onError: (Cursor<Tok>) -> Err,
-  ) = withError(onError) { +this@orFail }
-
-  @ParsingDslMarker
-  suspend operator fun ContinuationParser<
-    Tok,
-    Ctx,
-    Err,
-    Tok,
-  >.unaryPlus(): Tok {
-    val res = this@unaryPlus.parse()
-    tokensInternal += res
-    return res
-  }
-
-  @ParsingDslMarker
-  suspend operator fun ContinuationParser<
-    Tok,
-    Ctx,
-    Err,
-    Iterable<Tok>,
-  >.unaryPlus(): List<Tok> {
-    val res = this@unaryPlus.parse()
-    tokensInternal += res
-    return res.toList()
-  }
-
-  @ParsingDslMarker
-  suspend fun <O> ContinuationParser<
-    Tok,
-    Ctx,
-    Err,
-    O,
-  >.parse(): O {
-    val cont =
-      with(ctx) {
-        parse(cursor)
-      }
-    return cont.fold(
-      onDone = { res, cur ->
-        cursor = cur
-        res
-      },
-      onCont = { res, zip, newCtx ->
-        cursor = zip
-        ctx = newCtx
-        res
-      },
-      onErr = { fail(it) },
-    )
-  }
-
-  open class SimpleErrorProvider<Tok : Any, Ctx : Any, Err : Any>(
-    private val originalScope: ParsingDsl<Tok, Ctx, Err>,
-    private val onError: (Cursor<Tok>) -> Err,
-  ) : ParsingDsl<
-      Tok,
-      Ctx,
-      Err,
-    >(
-      originalScope.cursor,
-      originalScope.ctx,
-      originalScope,
-    ) {
-    @ParsingDslMarker
-    fun Cursor<Tok>.zipperOrFail(): Zipper<Tok> =
-      fold(
-        { fail(onError(it)) },
-        { it },
-      )
-
-    @ParsingDslMarker
-    operator fun Tok.unaryPlus(): Tok = +{ c: Tok -> c == this@unaryPlus }
-
-    @ParsingDslMarker
-    operator fun Iterable<Tok>.unaryPlus(): List<Tok> = map { +it }
-
-    @ParsingDslMarker
-    operator fun ((Tok) -> Boolean).unaryPlus(): Tok =
-      with(originalScope) {
-        cursor.fold(
-          { fail(onError(it)) },
-          { zipper ->
-            val peek = zipper.peek
-            if (this@unaryPlus(peek)) {
-              cursor = zipper.moveRight()
-              tokensInternal += peek
-              peek
-            } else {
-              fail(onError(zipper))
-            }
-          },
-        )
-      }
-
-    @ParsingDslMarker
-    operator fun (
-    (rest: Iterable<Tok>) -> RestMatchResult
-    ).unaryPlus(): List<Tok> =
-      with(originalScope) {
-        cursor.fold(
-          { fail(onError(it)) },
-          { zipper ->
-            val rest = zipper.toRestList()
-            @Suppress("RemoveRedundantQualifierName")
-            when (val result = this@unaryPlus(rest)) {
-              is Ok -> {
-                cursor = zipper.moveRight(result.proceed)
-                val ret = rest.take(result.proceed)
-                tokensInternal += ret
-                ret
-              }
-              is ParsingDsl.Err ->
-                fail(onError(zipper.moveRight(result.proceed)))
-            }
-          },
-        )
-      }
-
-    @ParsingDslMarker
-    suspend operator fun Parser<Tok, Ctx, Tok>.unaryPlus(): Tok =
-      with(originalScope) {
-        with(ctx) {
-          +parse(cursor)
-        }
-      }
-
-    @ParsingDslMarker
-    suspend operator fun Parser<
-      Tok,
-      Ctx,
-      Iterable<Tok>,
-    >.unaryPlus(): List<Tok> =
-      with(originalScope) {
-        with(ctx) {
-          (+parse(cursor)).toList()
-        }
-      }
-
-    @ParsingDslMarker
-    suspend operator fun <E : Any> ContinuationParser<
-      Tok,
-      Ctx,
-      E,
-      Tok,
-    >.unaryPlus(): Tok =
-      with(originalScope) {
-        with(ctx) {
-          parse(cursor)
-        }.fold(
-          { res, cur ->
-            cursor = cur
-            tokensInternal += res
-            res
-          },
-          { res, zip, newCtx ->
-            cursor = zip
-            ctx = newCtx
-            tokensInternal += res
-            res
-          },
-          { fail(onError(cursor)) },
-        )
-      }
-
-    @ParsingDslMarker
-    suspend operator fun <E : Any> ContinuationParser<
-      Tok,
-      Ctx,
-      E,
-      Iterable<Tok>,
-    >.unaryPlus(): List<Tok> =
-      with(originalScope) {
-        with(ctx) {
-          parse(cursor)
-        }.fold(
-          { res, cur ->
-            cursor = cur
-            tokensInternal += res
-            res.toList()
-          },
-          { res, zip, newCtx ->
-            cursor = zip
-            ctx = newCtx
-            tokensInternal += res
-            res.toList()
-          },
-          { fail(onError(cursor)) },
-        )
-      }
-
-    override fun toString() = "${super.toString()}(of $originalScope)()"
-  }
-}
-
-suspend fun <
-  T : Any,
-  C : Any,
-  E : Any,
-  R,
-> ParsingDsl<T, C, E>.withError(
-  onError: () -> E,
-  block: suspend SimpleErrorProvider<T, C, E>.() -> R,
-): R {
-  contract {
-    callsInPlace(block, InvocationKind.EXACTLY_ONCE)
-  }
-  return withError({ _ -> onError() }, block)
-}
-
-suspend fun <
-  T : Any,
-  C : Any,
-  E : Any,
-  R,
-> ParsingDsl<T, C, E>.withError(
-  onError: (Cursor<T>) -> E,
-  block: suspend SimpleErrorProvider<T, C, E>.() -> R,
-): R {
-  contract {
-    callsInPlace(block, InvocationKind.EXACTLY_ONCE)
-  }
-  return SimpleErrorProvider(this, onError).block()
-}
-
-@Suppress("LEAKED_IN_PLACE_LAMBDA")
-@ParsingDslMarker
-suspend fun <T : Any, C : Any, E : Any, R> ParsingDsl<T, C, *>.catch(
-  block: suspend ParsingDsl<T, C, E>.() -> R,
-): Either<E, R> =
-  either {
-    val catch =
-      parser("catch") a@{
-        val ret = this@a.block() to tokens
-        ret
-      }
-    with(catch) {
-      with(ctx) {
-        parse(cursor)
-      }
-    }.fold(
-      { (res, tokens), cur ->
-        cursor = cur
-        tokensInternal += tokens
-        res
-      },
-      { (res, tokens), zip, newCtx ->
-        cursor = zip
-        tokensInternal += tokens
-        ctx = newCtx
-        res
-      },
-      { err ->
-        raise(err)
-      },
-    )
-  }
-
-@ParsingDslMarker
-suspend fun <T : Any, C : Any, R> ParsingDsl<T, C, *>.option(
-  block: suspend SimpleErrorProvider<T, C, Any>.() -> R,
-): R? {
-  class DummyError
-  return catch {
-    val ret =
-      withError({ _ -> DummyError() }) {
-        block()
-      }
-    ret
-  }.getOrNull()
-}
