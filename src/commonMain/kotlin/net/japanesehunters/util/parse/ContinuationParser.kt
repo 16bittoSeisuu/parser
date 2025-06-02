@@ -18,7 +18,7 @@ import kotlin.contracts.ExperimentalContracts
  * along with additional context or error information.
  */
 typealias ContinuationParser<Tok, Ctx, Err, Res> =
-  Parser<Tok, Ctx, Continuation<Tok, Ctx, Err, Res>>
+  Parser<Tok, Ctx, Continuation<Tok, Err, Res>>
 
 /**
  * Combines two parsers such that the first parser (`this`) is executed,
@@ -137,10 +137,10 @@ fun <
 ): ContinuationParser<T, C, Any?, R> =
   object : ContinuationParser<T, C, Any?, R> {
     context(ctx: C)
-    override suspend fun parse(input: Cursor<T>): Continuation<T, C, Any?, R> =
+    override suspend fun parse(input: Cursor<T>): Continuation<T, Any?, R> =
       try {
         coroutineScope {
-          val res = mutableListOf<Ok<T, C, R>>()
+          val res = mutableListOf<Ok<T, R>>()
           val err = mutableListOf<Pair<ContinuationParser<T, C, E, R>, E>>()
 
           (listOf(a) + rest.toList())
@@ -151,7 +151,7 @@ fun <
                   .parse(input)
                   .fold(
                     { result, cur -> res += Done(result, cur) },
-                    { result, zip, ctx -> res += Cont(result, zip, ctx) },
+                    { result, zip -> res += Cont(result, zip) },
                     { error ->
                       when (error) {
                         is CriticalParseError ->
@@ -362,14 +362,14 @@ operator fun <
 > ContinuationParser<T, C, E, O>.not(): ContinuationParser<T, C, O, E> =
   object : ContinuationParser<T, C, O, E> {
     context(ctx: C)
-    override suspend fun parse(input: Cursor<T>): Continuation<T, C, O, E> {
+    override suspend fun parse(input: Cursor<T>): Continuation<T, O, E> {
       yield()
       return when (val cont = this@not.parse(input)) {
         is Ok -> Err(cont.result)
         is Err ->
           input.fold(
             { Done(cont.error, it) },
-            { Cont(cont.error, it, ctx) },
+            { Cont(cont.error, it) },
           )
       }
     }
