@@ -15,9 +15,7 @@ fun <Tok : Any, Ctx : Any, Err, R> parser(
     ) -> R,
 ) = object : ContinuationParser<Tok, Ctx, Err, R> {
   context(ctx: Ctx)
-  override suspend fun parse(
-    input: Cursor<Tok>,
-  ): Continuation<Tok, Ctx, Err, R> {
+  override suspend fun parse(input: Cursor<Tok>): Continuation<Tok, Err, R> {
     val scope = ParsingDslImpl<Tok, Ctx, Err>(input, ctx, null)
     val out =
       try {
@@ -28,7 +26,7 @@ fun <Tok : Any, Ctx : Any, Err, R> parser(
       }
     return scope.cursor.fold(
       onOutOfBounds = { cursor -> Done(out, cursor) },
-      onZipper = { rem -> Cont(out, rem, scope.ctx) },
+      onZipper = { rem -> Cont(out, rem) },
     )
   }
 

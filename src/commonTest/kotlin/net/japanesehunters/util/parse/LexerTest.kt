@@ -190,7 +190,7 @@ class LexerTest : StringSpec() {
   ) {
     withClue(with) {
       val cont = parse(with)
-      cont.shouldBeInstanceOf<Ok<*, *, *>>()
+      cont.shouldBeInstanceOf<Ok<*, *>>()
       cont.result shouldBe to
     }
   }
