@@ -150,9 +150,8 @@ fun <
                 parser
                   .parse(input)
                   .fold(
-                    { result, cur -> res += Done(result, cur) },
-                    { result, zip -> res += Cont(result, zip) },
-                    { error ->
+                    { res += it },
+                    { (error) ->
                       when (error) {
                         is CriticalParseError ->
                           throw CriticalParseErrorException(error)
@@ -484,8 +483,8 @@ inline fun <
       this@complete
         .parse(input)
         .fold(
-          onOk = { it },
-          onErr = { onError(it) },
+          onOk = { (res, _) -> res },
+          onErr = { (err) -> onError(err) },
         )
 
     override fun toString() = this@complete.toString()

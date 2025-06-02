@@ -287,17 +287,12 @@ private class ParsingDslImpl<Tok : Any, Ctx : Any, Err>(
       with(ctx) {
         catch.parse(cursor)
       }.fold(
-        { res, cur ->
+        { (res, cur) ->
           cursor = cur
           res
         },
-        { res, zip, newCtx ->
-          cursor = zip
-          ctx = newCtx
-          res
-        },
-        {
-          raise(it)
+        { (err) ->
+          raise(err)
         },
       )
     }
@@ -383,16 +378,13 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err>(
       with(ctx) {
         parse(cursor)
       }.fold(
-        { res, cur ->
+        { (res, cur) ->
           cursor = cur
           res
         },
-        { res, zip, newCtx ->
-          cursor = zip
-          ctx = newCtx
-          res
+        { (err) ->
+          fail(onFailure(cursor, err))
         },
-        { fail(onFailure(cursor, it)) },
       )
     }
 
