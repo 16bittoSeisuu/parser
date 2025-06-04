@@ -10,13 +10,20 @@ import net.japanesehunters.util.parse.ParsingDsl.RestMatchResult
 fun <Tok : Any, Ctx : Any, Err, R> parser(
   name: String,
   block:
-    suspend ParsingDsl<Tok, Ctx, Err>.(
+    suspend ParsingDsl<Tok, Ctx, Err, R>.(
       ctxTypeInfer: Ctx,
     ) -> R,
 ) = object : ContinuationParser<Tok, Ctx, Err, R> {
   context(ctx: Ctx)
   override suspend fun parse(input: Cursor<Tok>): Continuation<Tok, Err, R> {
-    val scope = ParsingDslImpl<Tok, Ctx, Err>(input, ctx, null)
+    val scope =
+      ParsingDslImpl<Tok, Ctx, Err, R>(
+        input,
+        ctx,
+        // we don't want to reflect this parser's change to parent
+        null,
+        this,
+      )
     val out =
       try {
         scope.block(ctx)
@@ -36,20 +43,26 @@ fun <Tok : Any, Ctx : Any, Err, R> parser(
 @DslMarker
 annotation class ParsingDslMarker
 
-interface ParsingDsl<Tok : Any, Ctx : Any, Err> {
+interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
+  @ParsingDslMarker
+  val self: ContinuationParser<Tok, Ctx, Err, Out>
+
   @ParsingDslMarker
   val tokens: List<Tok>
     get() =
       startingCursor.toRestList().take(cursor.index - startingCursor.index)
 
+  @ParsingDslMarker
   val startingCursor: Cursor<Tok>
 
+  @ParsingDslMarker
   val cursor: Cursor<Tok>
 
+  @ParsingDslMarker
   var ctx: Ctx
 
-  interface ErrorProvider<Tok : Any, Ctx : Any, Err> :
-    ParsingDsl<Tok, Ctx, Err> {
+  interface ErrorProvider<Tok : Any, Ctx : Any, Err, Out> :
+    ParsingDsl<Tok, Ctx, Err, Out> {
     @ParsingDslMarker
     fun Cursor<Tok>.zipperOrFail(): Zipper<Tok>
 
@@ -255,11 +268,12 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err> {
   }
 }
 
-private class ParsingDslImpl<Tok : Any, Ctx : Any, Err>(
+private class ParsingDslImpl<Tok : Any, Ctx : Any, Err, Out>(
   input: Cursor<Tok>,
   override var ctx: Ctx,
-  private val parent: ParsingDslImpl<Tok, Ctx, Err>? = null,
-) : ParsingDsl<Tok, Ctx, Err> {
+  private val parent: ParsingDslImpl<Tok, Ctx, Err, Out>? = null,
+  override val self: ContinuationParser<Tok, Ctx, Err, Out>
+) : ParsingDsl<Tok, Ctx, Err, Out> {
   override val startingCursor = input
   override var cursor = input
     get() = parent?.cursor ?: field
@@ -277,19 +291,22 @@ private class ParsingDslImpl<Tok : Any, Ctx : Any, Err>(
   ): R = ParsingDslErrorProviderImpl(this, onError).block()
 
   override suspend fun <E, R> catch(
-    block: suspend ParsingDsl<Tok, Ctx, E>.() -> R,
+    block: suspend ParsingDsl<Tok, Ctx, E, Out>.() -> R,
   ): Either<E, R> =
     either {
       val catch =
         parser("catch") {
-          block()
+          // TODO: quick and dirty
+          @Suppress("UNCHECKED_CAST")
+          block() as Out
         }
       with(ctx) {
         catch.parse(cursor)
       }.fold(
         { (res, cur) ->
           cursor = cur
-          res
+          @Suppress("UNCHECKED_CAST")
+          res as R
         },
         { (err) ->
           raise(err)
@@ -298,12 +315,12 @@ private class ParsingDslImpl<Tok : Any, Ctx : Any, Err>(
     }
 }
 
-private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err>(
-  private val parent: ParsingDslImpl<Tok, Ctx, Err>,
-  private val onError: (at: Cursor<Tok>) -> Err,
-) : ParsingDsl.ErrorProvider<Tok, Ctx, Err>,
-  ParsingDsl<Tok, Ctx, Err> by parent {
-  override fun Cursor<Tok>.zipperOrFail(): Zipper<Tok> =
+private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
+  private val parent: ParsingDslImpl<Tok, Ctx, Err, Out>,
+  private val onError: suspend (at: Cursor<Tok>) -> Err,
+) : ParsingDsl.ErrorProvider<Tok, Ctx, Err, Out>,
+  ParsingDsl<Tok, Ctx, Err, Out> by parent {
+  override suspend fun Cursor<Tok>.zipperOrFail(): Zipper<Tok> =
     fold(
       { fail(onError(it)) },
       { it },
