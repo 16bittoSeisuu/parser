@@ -14,9 +14,9 @@ import net.japanesehunters.util.parse.parser
 
 typealias Lexer<Out> = Parser<Char, Any, Out>
 
-typealias LexingDsl<Err> = ParsingDsl<Char, Any, Err>
+typealias LexingDsl<Err, Out> = ParsingDsl<Char, Any, Err, Out>
 
-typealias LexingDslErrorProvider<Err> = ParsingDsl.ErrorProvider<Char, Any, Err>
+typealias LexingDslErrorProvider<Err, Out> = ParsingDsl.ErrorProvider<Char, Any, Err, Out>
 
 suspend fun <O> Lexer<O>.parse(input: CharSequence) =
   with(Any()) { this@parse.parse(input.cursor()) }
@@ -75,47 +75,47 @@ val lineSeparator =
 
 inline fun <E, R> lexer(
   name: String,
-  crossinline block: suspend LexingDsl<E>.() -> R,
+  crossinline block: suspend LexingDsl<E, R>.() -> R,
 ) = parser(name) { block() }
 
-val LexingDsl<*>.string get() = tokens.joinToString("")
+val LexingDsl<*, *>.string get() = tokens.joinToString("")
 
 @ParsingDslMarker
-context(dsl: LexingDsl<E>)
-suspend infix fun <E> CharSequence.orFail(
+context(dsl: LexingDsl<E, O>)
+suspend infix fun <E, O> CharSequence.orFail(
   onError: (at: Cursor<Char>) -> E,
 ): String = dsl.withError(onError) { +this@orFail }
 
 @ParsingDslMarker
-context(dsl: LexingDsl<E>)
-suspend infix fun <E> CharSequence.orFail(onError: () -> E): String =
+context(dsl: LexingDsl<E, O>)
+suspend infix fun <E, O> CharSequence.orFail(onError: () -> E): String =
   dsl.withError({ _ -> onError() }) { +this@orFail }
 
 @ParsingDslMarker
-context(dsl: LexingDsl<E>)
-suspend infix fun <E> (
+context(dsl: LexingDsl<E, O>)
+suspend infix fun <E, O> (
   (CharSequence) -> ParsingDsl.RestMatchResult
 ).orFail(
   onError: () -> E,
 ): String = dsl.withError(onError) { +this@orFail }
 
 @ParsingDslMarker
-context(dsl: LexingDsl<E>)
-suspend infix fun <E> (
+context(dsl: LexingDsl<E, O>)
+suspend infix fun <E, O> (
   (CharSequence) -> ParsingDsl.RestMatchResult
 ).orFail(
   onError: (at: Cursor<Char>) -> E,
 ): String = dsl.withError(onError) { +this@orFail }
 
 @ParsingDslMarker
-context(errorProvider: LexingDslErrorProvider<E>)
-operator fun <E> CharSequence.unaryPlus() = with(errorProvider) {
+context(errorProvider: LexingDslErrorProvider<E, O>)
+suspend operator fun <E, O> CharSequence.unaryPlus() = with(errorProvider) {
   (+toList()).joinToString("")
 }
 
 @ParsingDslMarker
-context(errorProvider: LexingDslErrorProvider<E>)
-operator fun <E> ((CharSequence) -> ParsingDsl.RestMatchResult).unaryPlus() =
+context(errorProvider: LexingDslErrorProvider<E, O>)
+suspend operator fun <E, O> ((CharSequence) -> ParsingDsl.RestMatchResult).unaryPlus() =
   with(errorProvider) {
     (
       +{ list: Iterable<Char> ->
@@ -125,8 +125,8 @@ operator fun <E> ((CharSequence) -> ParsingDsl.RestMatchResult).unaryPlus() =
   }
 
 @ParsingDslMarker
-context(errorProvider: LexingDslErrorProvider<E>)
-suspend operator fun <E> ContinuationParser<
+context(errorProvider: LexingDslErrorProvider<E, O>)
+suspend operator fun <E, O> ContinuationParser<
   Char,
   Any,
   E,
