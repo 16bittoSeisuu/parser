@@ -10,7 +10,7 @@ import net.japanesehunters.util.parse.ParsingDsl.RestMatchResult
 fun <Tok : Any, Ctx : Any, Err, R> parser(
   name: String,
   block:
-    suspend ParsingDsl<Tok, Ctx, Err, R>.(
+  suspend ParsingDsl<Tok, Ctx, Err, R>.(
       ctxTypeInfer: Ctx,
     ) -> R,
 ) = object : ContinuationParser<Tok, Ctx, Err, R> {
@@ -64,20 +64,21 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   interface ErrorProvider<Tok : Any, Ctx : Any, Err, Out> :
     ParsingDsl<Tok, Ctx, Err, Out> {
     @ParsingDslMarker
-    fun Cursor<Tok>.zipperOrFail(): Zipper<Tok>
+    suspend fun Cursor<Tok>.zipperOrFail(): Zipper<Tok>
 
     @ParsingDslMarker
-    operator fun Tok.unaryPlus(): Tok = +{ c: Tok -> c == this@unaryPlus }
+    suspend operator fun Tok.unaryPlus(): Tok =
+      +{ c: Tok -> c == this@unaryPlus }
 
     @ParsingDslMarker
-    operator fun Iterable<Tok>.unaryPlus(): List<Tok> = map { +it }
+    suspend operator fun Iterable<Tok>.unaryPlus(): List<Tok> = map { +it }
 
     @ParsingDslMarker
-    operator fun ((Tok) -> Boolean).unaryPlus(): Tok
+    suspend operator fun (suspend (Tok) -> Boolean).unaryPlus(): Tok
 
     @ParsingDslMarker
-    operator fun (
-    (rest: Iterable<Tok>) -> RestMatchResult
+    suspend operator fun (
+    suspend (rest: Iterable<Tok>) -> RestMatchResult
     ).unaryPlus(): List<Tok>
 
     @ParsingDslMarker
@@ -111,56 +112,56 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   fun fail(error: Err): Nothing
 
   suspend fun <R> withError(
-    onError: () -> Err,
-    block: suspend ErrorProvider<Tok, Ctx, Err>.() -> R,
+    onError: suspend () -> Err,
+    block: suspend ErrorProvider<Tok, Ctx, Err, Out>.() -> R,
   ): R = withError({ _ -> onError() }, block)
 
   suspend fun <R> withError(
-    onError: (Cursor<Tok>) -> Err,
-    block: suspend ErrorProvider<Tok, Ctx, Err>.() -> R,
+    onError: suspend (Cursor<Tok>) -> Err,
+    block: suspend ErrorProvider<Tok, Ctx, Err, Out>.() -> R,
   ): R
 
   @ParsingDslMarker
-  suspend infix fun Cursor<Tok>.zipperOrFail(onError: () -> Err) =
+  suspend infix fun Cursor<Tok>.zipperOrFail(onError: suspend () -> Err) =
     withError(onError) { this@zipperOrFail.zipperOrFail() }
 
-  suspend infix fun Cursor<Tok>.zipperOrFail(onError: (Cursor<Tok>) -> Err) =
+  suspend infix fun Cursor<Tok>.zipperOrFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { this@zipperOrFail.zipperOrFail() }
 
   @ParsingDslMarker
-  suspend infix fun Tok.orFail(onError: () -> Err) =
+  suspend infix fun Tok.orFail(onError: suspend () -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun Tok.orFail(onError: (Cursor<Tok>) -> Err) =
+  suspend infix fun Tok.orFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun Iterable<Tok>.orFail(onError: () -> Err) =
+  suspend infix fun Iterable<Tok>.orFail(onError: suspend () -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun Iterable<Tok>.orFail(onError: (Cursor<Tok>) -> Err) =
+  suspend infix fun Iterable<Tok>.orFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun ((Tok) -> Boolean).orFail(onError: () -> Err) =
+  suspend infix fun ((Tok) -> Boolean).orFail(onError: suspend () -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun ((Tok) -> Boolean).orFail(onError: (Cursor<Tok>) -> Err) =
+  suspend infix fun ((Tok) -> Boolean).orFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun (
-  (rest: Iterable<Tok>) -> RestMatchResult
+  suspend (rest: Iterable<Tok>) -> RestMatchResult
   ).orFail(
     onError: () -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun (
-  (rest: Iterable<Tok>) -> RestMatchResult
+  suspend (rest: Iterable<Tok>) -> RestMatchResult
   ).orFail(
     onError: (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
@@ -178,52 +179,44 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   ) : RestMatchResult
 
   @ParsingDslMarker
-  suspend infix fun Parser<Tok, Ctx, Tok>.orFail(onError: () -> Err) =
+  suspend infix fun Parser<Tok, Ctx, Tok>.orFail(onError: suspend () -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Tok>.orFail(
-    onError: (Cursor<Tok>) -> Err,
+    onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
-    onError: () -> Err,
+    onError: suspend () -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
-    onError: (Cursor<Tok>) -> Err,
+    onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun <E, R> ContinuationParser<Tok, Ctx, E, R>.orFail(
-    onError: () -> Err,
+    onError: suspend () -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
   suspend infix fun <E, R> ContinuationParser<Tok, Ctx, E, R>.orFail(
-    onError: (Cursor<Tok>) -> Err,
+    onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun <E, R> ContinuationParser<
-    Tok,
-    Ctx,
-    E,
-    Iterable<R>,
-  >.orFail(
-    onError: () -> Err,
+  context(ctx: C)
+  suspend infix fun <C : Any, E, R> ContinuationParser<Tok, C, E, R>.orFail(
+    onError: suspend () -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
-  suspend infix fun <E, R> ContinuationParser<
-    Tok,
-    Ctx,
-    E,
-    Iterable<R>,
-  >.orFail(
-    onError: (Cursor<Tok>) -> Err,
+  context(ctx: C)
+  suspend infix fun <C : Any, E, R> ContinuationParser<Tok, C, E, R>.orFail(
+    onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
   @ParsingDslMarker
@@ -252,12 +245,12 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   @Suppress("LEAKED_IN_PLACE_LAMBDA")
   @ParsingDslMarker
   suspend fun <E, R> catch(
-    block: suspend ParsingDsl<Tok, Ctx, E>.() -> R,
+    block: suspend ParsingDsl<Tok, Ctx, E, Out>.() -> R,
   ): Either<E, R>
 
   @ParsingDslMarker
   suspend fun <R> option(
-    block: suspend ErrorProvider<Tok, Ctx, Any>.() -> R,
+    block: suspend ErrorProvider<Tok, Ctx, Any, Out>.() -> R,
   ): R? {
     class DummyError
     return catch {
@@ -288,8 +281,8 @@ private class ParsingDslImpl<Tok : Any, Ctx : Any, Err, Out>(
   ) : Exception()
 
   override suspend fun <R> withError(
-    onError: (Cursor<Tok>) -> Err,
-    block: suspend ParsingDsl.ErrorProvider<Tok, Ctx, Err>.() -> R,
+    onError: suspend (Cursor<Tok>) -> Err,
+    block: suspend ParsingDsl.ErrorProvider<Tok, Ctx, Err, Out>.() -> R,
   ): R = ParsingDslErrorProviderImpl(this, onError).block()
 
   override suspend fun <E, R> catch(
@@ -328,7 +321,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       { it },
     )
 
-  override fun ((Tok) -> Boolean).unaryPlus(): Tok =
+  override suspend fun (suspend (Tok) -> Boolean).unaryPlus(): Tok =
     with(parent) {
       cursor.fold(
         { fail(onError(it)) },
@@ -344,8 +337,8 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       )
     }
 
-  override operator fun (
-  (rest: Iterable<Tok>) -> RestMatchResult
+  override suspend operator fun (
+  suspend (rest: Iterable<Tok>) -> RestMatchResult
   ).unaryPlus(): List<Tok> =
     with(parent) {
       cursor.fold(
