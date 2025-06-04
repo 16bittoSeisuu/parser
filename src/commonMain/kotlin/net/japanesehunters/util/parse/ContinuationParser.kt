@@ -4,9 +4,9 @@ package net.japanesehunters.util.parse
 
 import arrow.core.NonEmptyList
 import arrow.core.getOrElse
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import net.japanesehunters.util.collection.Cursor
 import net.japanesehunters.util.collection.fold
@@ -143,26 +143,30 @@ fun <
           val res = mutableListOf<Ok<T, R>>()
           val err = mutableListOf<Pair<ContinuationParser<T, C, E, R>, E>>()
 
-          (listOf(a) + rest.toList())
-            .map { parser ->
-              yield()
-              launch {
-                parser
-                  .parse(input)
-                  .fold(
-                    { res += it },
-                    { (error) ->
-                      when (error) {
-                        is CriticalParseError ->
-                          throw CriticalParseErrorException(error)
+          res +=
+            (listOf(a) + rest.toList())
+              .map { parser ->
+                yield()
+                async {
+                  parser
+                    .parse(input)
+                    .fold(
+                      { it },
+                      { (error) ->
+                        when (error) {
+                          is CriticalParseError ->
+                            throw CriticalParseErrorException(error)
 
-                        else ->
-                          err += parser to error
-                      }
-                    },
-                  )
-              }
-            }.joinAll()
+                          else -> {
+                            err += parser to error
+                            null
+                          }
+                        }
+                      },
+                    )
+                }
+              }.awaitAll()
+              .filterNotNull()
           return@coroutineScope res
             .maxWithOrNull { a, b -> cmp.compare(a.result, b.result) }
             ?: Err(err.toList())
