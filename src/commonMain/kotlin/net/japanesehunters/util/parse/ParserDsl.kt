@@ -99,12 +99,13 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     >.unaryPlus(): R
 
     @ParsingDslMarker
-    suspend operator fun <E, R> ContinuationParser<
+    context(ctx: C)
+    suspend operator fun <C : Any, E, R> ContinuationParser<
       Tok,
-      Ctx,
+      C,
       E,
-      Iterable<R>,
-    >.unaryPlus(): List<R>
+      R,
+      >.unaryPlus(): R
   }
 
   fun fail(error: Err): Nothing
@@ -237,14 +238,15 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     }) { +this@unaryPlus }
 
   @ParsingDslMarker
-  suspend operator fun <R> ContinuationParser<
+  context(ctx: C)
+  suspend operator fun <C : Any, R> ContinuationParser<
     Tok,
-    Ctx,
+    C,
     Err,
-    Iterable<R>,
-  >.unaryPlus(): List<R> =
+    R,
+    >.unaryPlus(): R =
     withError({ _ ->
-      throw IllegalArgumentException("unreachable")
+      throw IllegalStateException("unreachable")
     }) { +this@unaryPlus }
 
   @Suppress("LEAKED_IN_PLACE_LAMBDA")
@@ -383,12 +385,13 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       }
     }
 
-  suspend fun <E, R> ContinuationParser<
+  private suspend inline fun <C : Any, E, R> ContinuationParser<
     Tok,
-    Ctx,
+    C,
     E,
     R,
   >.parse(
+    ctx: C,
     onFailure: (Cursor<Tok>, E) -> Err,
   ): R =
     with(parent) {
@@ -412,16 +415,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
     E,
     R,
   >.unaryPlus(): R =
-    parse { cursor, _ -> onError(cursor) }
-
-  @ParsingDslMarker
-  override suspend operator fun <E, R> ContinuationParser<
-    Tok,
-    Ctx,
-    E,
-    Iterable<R>,
-  >.unaryPlus(): List<R> =
-    parse { cursor, _ -> onError(cursor) }.toList()
+    parse(ctx) { cursor, _ -> onError(cursor) }
 
   @ParsingDslMarker
   override suspend operator fun <R> ContinuationParser<
@@ -430,14 +424,23 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
     Err,
     R,
   >.unaryPlus(): R =
-    parse { _, e -> fail(e) }
+    parse(ctx) { _, e -> fail(e) }
 
-  @ParsingDslMarker
-  override suspend operator fun <R> ContinuationParser<
+  context(ctx: C)
+  override suspend fun <C : Any, E, R> ContinuationParser<
     Tok,
-    Ctx,
+    C,
+    E,
+    R
+    >.unaryPlus(): R = parse(ctx) { cursor, _ -> onError(cursor) }
+
+
+  context(ctx: C)
+  override suspend operator fun <C : Any, R> ContinuationParser<
+    Tok,
+    C,
     Err,
-    Iterable<R>,
-  >.unaryPlus(): List<R> =
-    parse { _, e -> fail(e) }.toList()
+    R,
+    >.unaryPlus(): R =
+    parse(ctx) { _, e -> fail(e) }
 }
