@@ -5,4 +5,5 @@ pluginManagement {
   }
 }
 
-rootProject.name = "lycoris"
+rootProject.name = "parser"
+include("sample", "utilities")
