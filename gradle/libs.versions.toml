@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.2.0-RC"
+kotlin = "2.2.0-RC2"
 kotlinxSerialization = "1.8.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxDatetime = "0.6.2"
@@ -55,6 +55,7 @@ okio = [
 ]
 
 [plugins]
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotest = { id = "io.kotest.multiplatform", version.ref = "kotest" }
