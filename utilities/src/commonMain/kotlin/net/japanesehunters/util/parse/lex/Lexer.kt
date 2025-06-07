@@ -34,7 +34,7 @@ val toString = { list: Iterable<Char> -> list.joinToString("") }
 
 val concat = { list: Iterable<CharSequence> -> list.joinToString("") }
 
-value class NotDigit(
+data class NotDigit(
   val at: Cursor<Char>,
 )
 

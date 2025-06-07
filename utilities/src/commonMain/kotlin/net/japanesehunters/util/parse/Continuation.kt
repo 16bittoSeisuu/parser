@@ -29,8 +29,6 @@ data class Done<out Tok : Any, out Res>(
   override val remainder: Cursor<Tok>,
 ) : Ok<Tok, Res>
 
-value class Err<out Err>(
+data class Err<out Err>(
   val error: Err,
-) : Continuation<Nothing, Err, Nothing> {
-  operator fun component1() = error
-}
+) : Continuation<Nothing, Err, Nothing>
