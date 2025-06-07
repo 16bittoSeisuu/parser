@@ -113,7 +113,10 @@ infix fun <
  * - If a critical error occurs during any parsing, it is immediately returned.
  * - If no critical errors occur and at least one parser succeeds,
  *   the most optimal result (determined by using the comparator) is returned
- *   as a [Ok].
+ *   as a [Ok]. **Note:** If [`cmp.compare(x, y)`](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Comparator.html#compare(T,T))
+ *   returns 0 (i.e., results are considered equivalent), the parser that
+ *   appears first among the arguments will be given priority.
+
  * - If no critical errors occur and none of the parsers succeed, a list of
  *   failed parsers paired with their respective errors is returned; type:
  *   `List<ContinuationParser<T, C, E, R>, E>`
