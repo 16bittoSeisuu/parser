@@ -10,6 +10,8 @@ sealed interface Cursor<out T> {
 
   fun moveLeft(n: Int = 1): Cursor<T>
 
+  fun toPassedList(): List<T>
+
   fun toRestList(): List<T>
 
   fun toList(): List<T>
@@ -57,11 +59,18 @@ data class OutOfBounds<out T>(
       { it },
     )
 
+  override fun toPassedList(): List<T> =
+    if (index < 0) {
+      emptyList()
+    } else {
+      toList()
+    }
+
   override fun toRestList(): List<T> =
     if (index < 0) {
       toList()
     } else {
-      list.drop(index)
+      emptyList()
     }
 
   override fun toList() = list.toList()
@@ -69,6 +78,8 @@ data class OutOfBounds<out T>(
 
 interface Zipper<out T> : Cursor<T> {
   val peek: T
+
+  override fun toPassedList(): List<T>
 
   override fun toRestList(): NonEmptyList<T>
 

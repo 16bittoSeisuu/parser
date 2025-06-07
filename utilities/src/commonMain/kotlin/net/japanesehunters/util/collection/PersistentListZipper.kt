@@ -57,6 +57,8 @@ data class PersistentListZipper<T> private constructor(
     }
   }
 
+  override fun toPassedList(): List<T> = lefts.reversed()
+
   override fun toRestList(): NonEmptyList<T> = nonEmptyListOf(peek) + rights
 
   override fun toList(): NonEmptyList<T> =
