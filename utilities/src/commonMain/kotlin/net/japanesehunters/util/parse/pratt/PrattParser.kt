@@ -1,9 +1,12 @@
 package net.japanesehunters.util.parse.pratt
 
+import arrow.core.NonEmptyCollection
+import arrow.core.split
 import net.japanesehunters.util.collection.Cursor
 import net.japanesehunters.util.parse.ContinuationParser
 import net.japanesehunters.util.parse.ParsingDsl
 import net.japanesehunters.util.parse.parser
+import net.japanesehunters.util.parse.select
 
 typealias AstParser<Tok, Ast> =
   ContinuationParser<Tok, Any, Any?, Ast>
@@ -29,6 +32,41 @@ fun <Tok : Any, Ast> astParser(
       block()
     }
   }
+}
+
+fun <Tok : Any, Ast> astParser(
+  name: String,
+  nudParsers: NonEmptyCollection<NudParser<Tok, Any?, Ast>>,
+  ledParsers: NonEmptyCollection<LedParser<Tok, Any?, Ast>>,
+  cmp: Comparator<Ast>,
+) = parser(name) {
+  val nudCtx = NudContext(self)
+  val (restNudParser, firstNudParser) = nudParsers.split()!!
+  val nud =
+    with(nudCtx) {
+      +select(firstNudParser, *restNudParser.toTypedArray(), cmp = cmp)
+    }
+
+  val (restLedParser, firstLedParser) = ledParsers.split()!!
+  var ret = nud
+  var bp = 0
+
+  while (true) {
+    val ledCtx = LedContext(ret, bp, self)
+    ret = option {
+      val (led, newBp) =
+        with(ledCtx) {
+          +select(
+            firstLedParser,
+            *restLedParser.toTypedArray(),
+            cmp = { a, b -> cmp.compare(a.expr, b.expr) },
+          )
+        }
+      bp = newBp
+      led
+    } ?: break
+  }
+  ret
 }
 
 fun <Tok : Any, Err, Ast> nudParser(
@@ -73,10 +111,12 @@ typealias NudDsl<Tok, Err, Ast> =
 typealias LedDsl<Tok, Err, Ast> =
   ParsingDsl<Tok, LedContext<Tok, Ast>, Err, LedParseResult<Ast>>
 
-val <Tok : Any, Ast> NudDsl<Tok, *, Ast>.expr: AstParser<Tok, Ast>
-  get() = ctx.exprParser
-
-val <Tok : Any, Ast> LedDsl<Tok, *, Ast>.expr: AstParser<Tok, Ast>
+val <
+  Tok : Any,
+  Ctx : PrattContext<Tok, Ast>,
+  Ast,
+> ParsingDsl<Tok, Ctx, *, *>.expr:
+  AstParser<Tok, Ast>
   get() = ctx.exprParser
 
 val <Tok : Any, Ast> LedDsl<Tok, *, Ast>.left: Ast

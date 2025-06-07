@@ -2,6 +2,7 @@ package net.japanesehunters.util.parse
 
 import arrow.core.Either
 import arrow.core.raise.either
+import net.japanesehunters.util.JvmNameJvmOnly
 import net.japanesehunters.util.collection.Cursor
 import net.japanesehunters.util.collection.Zipper
 import net.japanesehunters.util.collection.fold
@@ -73,17 +74,21 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     @ParsingDslMarker
     suspend operator fun Iterable<Tok>.unaryPlus(): List<Tok> = map { +it }
 
+    @JvmNameJvmOnly("lambdaUnaryPlus")
     @ParsingDslMarker
     suspend operator fun (suspend (Tok) -> Boolean).unaryPlus(): Tok
 
+    @JvmNameJvmOnly("lambdaIterableUnaryPlus")
     @ParsingDslMarker
     suspend operator fun (
     suspend (rest: Iterable<Tok>) -> RestMatchResult
     ).unaryPlus(): List<Tok>
 
+    @JvmNameJvmOnly("parserTokUnaryPlus")
     @ParsingDslMarker
     suspend operator fun Parser<Tok, Ctx, Tok>.unaryPlus(): Tok
 
+    @JvmNameJvmOnly("parserIterableTokUnaryPlus")
     @ParsingDslMarker
     suspend operator fun Parser<
       Tok,
@@ -91,6 +96,7 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
       Iterable<Tok>,
     >.unaryPlus(): List<Tok>
 
+    //    @JvmNameJvmOnly("contParserUnaryPlus")
     @ParsingDslMarker
     suspend operator fun <E, R> ContinuationParser<
       Tok,
@@ -99,6 +105,7 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
       R,
     >.unaryPlus(): R
 
+    //    @JvmNameJvmOnly("contParserCtxFreeUnaryPlus")
     @ParsingDslMarker
     context(ctx: C)
     suspend operator fun <C : Any, E, R> ContinuationParser<
@@ -170,55 +177,64 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     val proceed: Int
   }
 
-  value class Ok(
+  data class Ok(
     override val proceed: Int,
   ) : RestMatchResult
 
-  value class Err(
+  data class Err(
     override val proceed: Int,
   ) : RestMatchResult
 
+  @JvmNameJvmOnly("parserTokOrFail")
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Tok>.orFail(onError: suspend () -> Err) =
     withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("parserTokOrFail")
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Tok>.orFail(
     onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("parserIterableTokOrFail")
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
     onError: suspend () -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("parserIterableTokOrFail")
   @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
     onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("contParserOrFail")
   @ParsingDslMarker
   suspend infix fun <E, R> ContinuationParser<Tok, Ctx, E, R>.orFail(
     onError: suspend () -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("contParserOrFail")
   @ParsingDslMarker
   suspend infix fun <E, R> ContinuationParser<Tok, Ctx, E, R>.orFail(
     onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("contParserCtxFreeOrFail")
   @ParsingDslMarker
   context(ctx: C)
   suspend infix fun <C : Any, E, R> ContinuationParser<Tok, C, E, R>.orFail(
     onError: suspend () -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("contParserCtxFreeOrFail")
   @ParsingDslMarker
   context(ctx: C)
   suspend infix fun <C : Any, E, R> ContinuationParser<Tok, C, E, R>.orFail(
     onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("contParserUnaryPlus")
   @ParsingDslMarker
   suspend operator fun <R> ContinuationParser<
     Tok,
@@ -230,6 +246,7 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
       throw IllegalStateException("unreachable")
     }) { +this@unaryPlus }
 
+  @JvmNameJvmOnly("contParserCtxFreeUnaryPlus")
   @ParsingDslMarker
   context(ctx: C)
   suspend operator fun <C : Any, R> ContinuationParser<
@@ -321,6 +338,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       { it },
     )
 
+  @JvmNameJvmOnly("lambdaUnaryPlus")
   override suspend fun (suspend (Tok) -> Boolean).unaryPlus(): Tok =
     with(parent) {
       cursor.fold(
@@ -337,6 +355,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       )
     }
 
+  @JvmNameJvmOnly("lambdaIterableUnaryPlus")
   override suspend operator fun (
   suspend (rest: Iterable<Tok>) -> RestMatchResult
   ).unaryPlus(): List<Tok> =
@@ -358,6 +377,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       )
     }
 
+  @JvmNameJvmOnly("parserTokUnaryPlus")
   @ParsingDslMarker
   override suspend operator fun Parser<Tok, Ctx, Tok>.unaryPlus(): Tok =
     with(parent) {
@@ -366,6 +386,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       }
     }
 
+  @JvmNameJvmOnly("parserIterableTokUnaryPlus")
   @ParsingDslMarker
   override suspend operator fun Parser<
     Tok,
@@ -401,6 +422,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       )
     }
 
+  //  @JvmNameJvmOnly("contParserUnaryPlus")
   @ParsingDslMarker
   override suspend operator fun <E, R> ContinuationParser<
     Tok,
@@ -410,6 +432,7 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
   >.unaryPlus(): R =
     parse(ctx) { cursor, _ -> onError(cursor) }
 
+  @JvmNameJvmOnly("contParserMatchedErrUnaryPlus")
   @ParsingDslMarker
   override suspend operator fun <R> ContinuationParser<
     Tok,
@@ -419,6 +442,8 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
   >.unaryPlus(): R =
     parse(ctx) { _, e -> fail(e) }
 
+  //  @JvmNameJvmOnly("contParserCtxFreeUnaryPlus")
+  @ParsingDslMarker
   context(ctx: C)
   override suspend fun <C : Any, E, R> ContinuationParser<
     Tok,
@@ -427,7 +452,8 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
     R
     >.unaryPlus(): R = parse(ctx) { cursor, _ -> onError(cursor) }
 
-
+  @JvmNameJvmOnly("contParserCtxFreeMatchedErrUnaryPlus")
+  @ParsingDslMarker
   context(ctx: C)
   override suspend operator fun <C : Any, R> ContinuationParser<
     Tok,
