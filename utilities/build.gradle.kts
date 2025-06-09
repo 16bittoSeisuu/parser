@@ -18,6 +18,7 @@ kotlin {
 
   compilerOptions {
     freeCompilerArgs.add("-Xcontext-parameters")
+    freeCompilerArgs.add("-Xexpect-actual-classes")
     freeCompilerArgs.add("-Xpartial-linkage=enable")
   }
 
