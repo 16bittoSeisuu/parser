@@ -10,8 +10,6 @@ shadow = "9.0.0-beta15"
 kotest = "6.0.0.M3"
 arrow = "2.0.1"
 kotest-arrow = "2.0.0"
-clikt = "5.0.3"
-okio = "3.11.0"
 
 [libraries]
 kotlinxSerializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
@@ -26,10 +24,6 @@ kotest-arrow = { group = "io.kotest.extensions", name = "kotest-assertions-arrow
 
 arrow-core = { group = "io.arrow-kt", name = "arrow-core", version.ref = "arrow" }
 arrow-fx-coroutines = { group = "io.arrow-kt", name = "arrow-fx-coroutines", version.ref = "arrow" }
-
-clikt = { group = "com.github.ajalt.clikt", name = "clikt", version.ref = "clikt" }
-okio = { group = "com.squareup.okio", name = "okio", version.ref = "okio" }
-okio-ffs = { group = "com.squareup.okio", name = "okio-fakefilesystem", version.ref = "okio" }
 
 [bundles]
 kotlinx = [
@@ -49,11 +43,6 @@ kotest = [
 arrow = [
   "arrow-core",
   "arrow-fx-coroutines",
-]
-
-okio = [
-  "okio",
-  "okio-ffs",
 ]
 
 [plugins]
