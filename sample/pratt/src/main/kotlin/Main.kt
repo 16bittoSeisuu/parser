@@ -2,7 +2,11 @@ import net.japanesehunters.util.parse.fold
 import net.japanesehunters.util.parse.lex.parse
 
 suspend fun main() {
-  println("Give me some expressions, so I will calculate them for you.")
+  println("=== Simple Calculator ===")
+  println("Supported operators:")
+  println(" - plus, minus, multiply, divide, power")
+  println(" - unary plus, minus")
+  println(" - factorial")
   println("Type \"quit\" to exit.")
 
   while (true) {
