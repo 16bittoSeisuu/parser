@@ -8,11 +8,12 @@ import net.japanesehunters.util.parse.pratt.Associativity
 import net.japanesehunters.util.parse.pratt.LedParser
 import net.japanesehunters.util.parse.pratt.NudParser
 import net.japanesehunters.util.parse.pratt.astParser
-import net.japanesehunters.util.parse.pratt.bindOr
+import net.japanesehunters.util.parse.pratt.bind
 import net.japanesehunters.util.parse.pratt.expr
 import net.japanesehunters.util.parse.pratt.ledParser
 import net.japanesehunters.util.parse.pratt.left
 import net.japanesehunters.util.parse.pratt.nudParser
+import net.japanesehunters.util.parse.pratt.resetPower
 import net.japanesehunters.util.parse.repeat
 import net.japanesehunters.util.parse.some
 
@@ -27,6 +28,8 @@ val parser =
           floatParser,
           stringParser,
           parenParser,
+          unaryPlus,
+          unaryMinus,
         ),
         nonEmptyListOf(
           plus,
@@ -34,6 +37,8 @@ val parser =
           times,
           divide,
           mod,
+          pow,
+          fact,
         ),
         cmp = { _, _ -> -1 },
       ) orFail { _ -> "Could not parse expression!" }
@@ -96,28 +101,63 @@ val parenParser: NudParser<Char, String, Ast> =
   nudParser("paren parser") {
     '(' orFail { _ -> "Not a paren expression!" }
     skipWhitespaces()
-    val expr = expr orFail { _ -> "Could not parse expression" }
+    val expr =
+      with(ctx.resetPower()) {
+        expr orFail { _ -> "Could not parse expression" }
+      }
     skipWhitespaces()
     ')' orFail { _ -> "Not a paren expression!" }
     Paren(expr)
   }
 
-val plus = infix('+', 1, ::Plus)
-val minus = infix('-', 1, ::Minus)
-val times = infix('*', 2, ::Times)
-val divide = infix('/', 2, ::Div)
-val mod = infix('%', 2, ::Mod)
+val unaryPlus = prefix('+', 3) { UnaryPlus(it) }
+val unaryMinus = prefix('-', 3) { UnaryMinus(it) }
+
+val fact = postfix('!', power = 5) { Factorial(it) }
+
+val plus = infix('+', 1, factory = ::Plus)
+val minus = infix('-', 1, factory = ::Minus)
+val times = infix('*', 2, factory = ::Times)
+val divide = infix('/', 2, factory = ::Div)
+val mod = infix('%', 2, factory = ::Mod)
+val pow = infix('^', 4, Associativity.RIGHT, factory = ::Pow)
+
+fun prefix(
+  op: Char,
+  power: Int,
+  factory: (Ast) -> Ast,
+): NudParser<Char, String, Ast> =
+  nudParser("$op (unary) parser") {
+    op orFail { _ -> "Not a $op (unary) expression!" }
+    bind(power) { _, _ -> "Insufficient binding power!" }
+    skipWhitespaces()
+    val expr = expr orFail { _ -> "Could not parse expression" }
+    factory(expr)
+  }
+
+fun postfix(
+  op: Char,
+  power: Int,
+  factory: (Ast) -> Ast,
+): LedParser<Char, String, Ast> =
+  ledParser("$op (unary) parser") {
+    skipWhitespaces()
+    op orFail { _ -> "Not a $op (unary) expression!" }
+    bind(power, Associativity.LEFT) { _, _ -> "Insufficient binding power!" }
+    factory(left)
+  }
 
 fun infix(
   op: Char,
   power: Int,
+  associativity: Associativity = Associativity.LEFT,
   factory: (Ast, Ast) -> Ast,
 ): LedParser<Char, String, Ast> =
-  ledParser("plus parser") {
-    bindOr(power, Associativity.LEFT) { _, _ -> "Insufficient binding power!" }
+  ledParser("$op parser") {
     skipWhitespaces()
-    op orFail { _ -> "Not a plus expression!" }
+    op orFail { _ -> "Not a $op expression!" }
     skipWhitespaces()
+    bind(power, associativity) { _, _ -> "Insufficient binding power!" }
     val right = expr orFail { _ -> "Could not parse expression" }
     factory(left, right)
   }
