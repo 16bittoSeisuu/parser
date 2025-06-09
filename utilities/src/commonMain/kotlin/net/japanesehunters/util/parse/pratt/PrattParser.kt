@@ -2,6 +2,7 @@ package net.japanesehunters.util.parse.pratt
 
 import arrow.core.NonEmptyCollection
 import arrow.core.split
+import net.japanesehunters.util.JvmNameJvmOnly
 import net.japanesehunters.util.collection.Cursor
 import net.japanesehunters.util.parse.ContinuationParser
 import net.japanesehunters.util.parse.ParsingDsl
@@ -15,22 +16,23 @@ typealias NudParser<Tok, Err, Ast> =
   ContinuationParser<Tok, PrattContext<Tok, Ast>, Err, Ast>
 
 typealias LedParser<Tok, Err, Ast> =
-  ContinuationParser<Tok, LedContext<Tok, Ast>, Err, LedParseResult<Ast>>
+  ContinuationParser<Tok, LedContext<Tok, Ast>, Err, Ast>
 
-@Suppress("RemoveExplicitTypeArguments", "RedundantWith")
 fun <Tok : Any, Ast> astParser(
   name: String,
   block: suspend NudDsl<Tok, Any?, Ast>.() -> Ast,
 ) = parser<Tok, Any, Any?, Ast>(name) {
+  val body =
+    parser("$name (body)") a@{
+      this@a.block()
+    }
   val context =
     NudContext(
-      self,
+      body,
+      0,
     )
-
   with(context) {
-    +parser<Tok, PrattContext<Tok, Ast>, Any?, Ast>(name) {
-      block()
-    }
+    +body
   }
 }
 
@@ -39,8 +41,8 @@ fun <Tok : Any, Ast> astParser(
   nudParsers: NonEmptyCollection<NudParser<Tok, Any?, Ast>>,
   ledParsers: NonEmptyCollection<LedParser<Tok, Any?, Ast>>,
   cmp: Comparator<Ast>,
-) = parser(name) {
-  val nudCtx = NudContext(self)
+) = astParser(name) {
+  val nudCtx = NudContext(ctx.exprParser, ctx.minBindingPower)
   val (restNudParser, firstNudParser) = nudParsers.split()!!
   val nud =
     with(nudCtx) {
@@ -49,22 +51,19 @@ fun <Tok : Any, Ast> astParser(
 
   val (restLedParser, firstLedParser) = ledParsers.split()!!
   var ret = nud
-  var bp = 0
 
   while (true) {
-    val ledCtx = LedContext(ret, bp, self)
-    ret = option {
-      val (led, newBp) =
+    val ledCtx = LedContext(ret, ctx.minBindingPower, ctx.exprParser)
+    ret =
+      option {
         with(ledCtx) {
           +select(
             firstLedParser,
             *restLedParser.toTypedArray(),
-            cmp = { a, b -> cmp.compare(a.expr, b.expr) },
+            cmp = cmp,
           )
         }
-      bp = newBp
-      led
-    } ?: break
+      } ?: break
   }
   ret
 }
@@ -78,7 +77,7 @@ fun <Tok : Any, Err, Ast> ledParser(
   name: String,
   block: suspend LedDsl<Tok, Err, Ast>.() -> Ast,
 ) = parser(name) {
-  LedParseResult(block(), ctx.minBindingPower)
+  block()
 }
 
 enum class Associativity {
@@ -86,57 +85,99 @@ enum class Associativity {
   RIGHT,
 }
 
-sealed interface PrattContext<Tok : Any, out Ast> {
-  val exprParser: AstParser<Tok, Ast>
+sealed interface PrattContext<Tok : Any, Ast> {
+  val exprParser: NudParser<Tok, Any?, Ast>
+  val minBindingPower: Int
+
+  fun withPower(newPower: Int): PrattContext<Tok, Ast>
 }
 
-data class NudContext<Tok : Any, out Ast>(
-  override val exprParser: AstParser<Tok, Ast>,
-) : PrattContext<Tok, Ast>
+data class NudContext<Tok : Any, Ast>(
+  override val exprParser: NudParser<Tok, Any?, Ast>,
+  override val minBindingPower: Int,
+) : PrattContext<Tok, Ast> {
+  override fun withPower(newPower: Int): NudContext<Tok, Ast> =
+    copy(minBindingPower = newPower)
+}
 
-data class LedContext<Tok : Any, out Ast>(
+data class LedContext<Tok : Any, Ast>(
   val leftExpr: Ast,
-  val minBindingPower: Int,
-  override val exprParser: AstParser<Tok, Ast>,
-) : PrattContext<Tok, Ast>
+  override val minBindingPower: Int,
+  override val exprParser: NudParser<Tok, Any?, Ast>,
+) : PrattContext<Tok, Ast> {
+  override fun withPower(newPower: Int): LedContext<Tok, Ast> =
+    copy(minBindingPower = newPower)
+}
 
-data class LedParseResult<out Ast>(
-  val expr: Ast,
-  val nextBindingPower: Int,
-)
+fun <Tok : Any, Ast> PrattContext<Tok, Ast>.resetPower() = withPower(0)
 
 typealias NudDsl<Tok, Err, Ast> =
   ParsingDsl<Tok, PrattContext<Tok, Ast>, Err, Ast>
 
 typealias LedDsl<Tok, Err, Ast> =
-  ParsingDsl<Tok, LedContext<Tok, Ast>, Err, LedParseResult<Ast>>
+  ParsingDsl<Tok, LedContext<Tok, Ast>, Err, Ast>
 
-val <
-  Tok : Any,
-  Ctx : PrattContext<Tok, Ast>,
-  Ast,
-> ParsingDsl<Tok, Ctx, *, *>.expr:
-  AstParser<Tok, Ast>
+@get:JvmNameJvmOnly("nudExpr")
+val <Tok : Any, Ast> NudDsl<Tok, *, Ast>.expr:
+  NudParser<Tok, Any?, Ast>
   get() = ctx.exprParser
+
+@get:JvmNameJvmOnly("ledExpr")
+val <Tok : Any, Ast> LedDsl<Tok, *, Ast>.expr:
+  ContinuationParser<Tok, LedContext<Tok, Ast>, Any?, Ast>
+  get() =
+    parser("${ctx.exprParser}") {
+      val ctx = NudContext(ctx.exprParser, ctx.minBindingPower)
+      with(ctx) {
+        +ctx.exprParser
+      }
+    }
 
 val <Tok : Any, Ast> LedDsl<Tok, *, Ast>.left: Ast
   get() = ctx.leftExpr
 
-inline fun <Tok : Any, Err, Ast> LedDsl<Tok, Err, Ast>.bindOr(
+@JvmNameJvmOnly("nudBind")
+inline fun <
+  Tok : Any,
+  Err,
+  Ast,
+> NudDsl<Tok, Err, Ast>.bind(
+  power: Int,
+  crossinline onInsufficientPower: (at: Cursor<Tok>, actual: Int) -> Err,
+) = bindInternal(power, Associativity.RIGHT, onInsufficientPower)
+
+@JvmNameJvmOnly("ledBind")
+inline fun <
+  Tok : Any,
+  Err,
+  Ast,
+> LedDsl<Tok, Err, Ast>.bind(
   power: Int,
   associativity: Associativity,
-  onInsufficientPower: (at: Cursor<Tok>, actual: Int) -> Err,
+  crossinline onInsufficientPower: (at: Cursor<Tok>, actual: Int) -> Err,
+) = bindInternal(power, associativity, onInsufficientPower)
+
+inline fun <
+  Tok : Any,
+  Ctx : PrattContext<Tok, Ast>,
+  Err,
+  Ast,
+> ParsingDsl<Tok, Ctx, Err, Ast>.bindInternal(
+  power: Int,
+  associativity: Associativity,
+  crossinline onInsufficientPower: (at: Cursor<Tok>, actual: Int) -> Err,
 ) {
   if (power * 2 < ctx.minBindingPower) {
     fail(onInsufficientPower(cursor, ctx.minBindingPower))
   }
+  @Suppress("UNCHECKED_CAST")
   ctx =
-    ctx.copy(
-      minBindingPower =
+    ctx
+      .withPower(
         power * 2 +
           when (associativity) {
             Associativity.LEFT -> 1
             Associativity.RIGHT -> 0
           },
-    )
+      ) as Ctx // nudCtx.withPower = nudCtx, ledCtx.withPower = ledCtx
 }
