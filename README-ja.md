@@ -1,127 +1,130 @@
-# Kotlin Multiplatform パーサーユーティリティ
+# Kotlin Multiplatform パーサーコンビネーター
 
 ## 概要
 
-Kotlin Multiplatform向けの強力なパーシングユーティリティとデータ構造操作ツールを提供するライブラリです。このライブラリは、コレクションの効率的なカーソルベースナビゲーションと、カスタムパーサー構築のための柔軟なパーサーフレームワークを提供します。
+Kotlin Multiplatform向けのデータ構造操作ツールとパーサーコンビネーターを提供するライブラリです。
 
-## 機能
-
-### 🎯 Cursor & Zipper データ構造
-- **Cursor**: 位置追跡機能付きのコレクションナビゲーション
-- **Zipper**: 効率的なリスト走査のためのイミュータブルデータ構造
-- **PersistentListZipper**: 永続化データ構造を使用したメモリ効率的なZipper実装
-
-### 📝 パーサーフレームワーク
-- 関数型パーサーコンビネータ
-- カスタムパーシングコンテキストのサポート
-- 複雑なシナリオ向けの継続ベースパーシング
-- 簡単なパーサー合成のための拡張関数
-
-### 🔧 コレクションユーティリティ
-- ListとNonEmptyList用の拡張関数
-- 文字列パーシングサポート
-- OutOfBounds処理による境界安全なナビゲーション
-
-## クイックスタート
-
-### 基本的なCursorの使用方法
-
-```kotlin
-import net.japanesehunters.util.collection.*
-
-// リストからカーソルを作成
-val list = listOf(1, 2, 3, 4, 5)
-val cursor = list.cursor()
-
-// コレクション内を移動
-val moved = cursor.moveRight(2) // 右に2つ移動
-val back = moved.moveLeft(1)    // 左に1つ移動
-
-// 現在の要素にアクセス（境界内の場合）
-cursor.fold(
-  onOutOfBounds = { println("インデックス ${it.index} で境界外") },
-  onZipper = { println("現在の要素: ${it.peek}") }
-)
-```
-
-### 文字列パーシングの例
-
-```kotlin
-import net.japanesehunters.util.collection.*
-
-// 文字列を文字単位でパース
-val text = "Hello, World!"
-val charCursor = text.cursor()
-
-// 文字間を移動
-charCursor.fold(
-  onOutOfBounds = { /* 境界外の処理 */ },
-  onZipper = { zipper ->
-    println("最初の文字: ${zipper.peek}")
-    val next = zipper.moveRight()
-    // パーシングを続行...
-  }
-)
-```
-
-### パーサーの使用方法
-
-```kotlin
-import net.japanesehunters.util.parse.*
-
-// トークンリストでパーサーを使用
-suspend fun parseExample() {
-  val tokens = listOf("hello", "world")
-  val result = someParser.parse(tokens)
-
-  result.fold(
-    { (result, remaining) -> 
-      println("パース結果: $result")
-      println("残り: $remaining")
-    },
-    { error -> 
-      println("パースエラー: $error")
-    }
-  )
-}
-```
-
-## サンプルプロジェクト
-
-リポジトリには、以下をサポートする計算機の構築を実演するPrattパーサーの実装サンプルが含まれています：
-- 基本算術演算（+ - * / ^）
-- 単項演算（+ -）
-- 階乗演算（!）
-- 適切な演算子優先順位
-
-計算機サンプルを実行するには：
-
-```bash
-./gradlew :sample:pratt:run
-```
-
-## アーキテクチャ
-
-### コアコンポーネント
-
-- **Cursor Interface**: コレクションナビゲーションの基本抽象化
-- **Zipper Interface**: 現在要素が保証された拡張カーソル
-- **PersistentListZipper**: イミュータブルコレクションを使用した具体実装
-- **Parser Framework**: 継続サポート付きの関数型パーシング
-
-### 設計原則
+## 設計原則
 
 - **イミュータビリティ**: すべてのデータ構造がデフォルトでイミュータブル
 - **型安全性**: Kotlinの型システムとArrowの関数型プログラミング概念を活用
 - **メモリ効率**: 永続化データ構造を使用してメモリ割り当てを最小化
 - **合成可能性**: パーサーコンビネータにより単純なパーサーから複雑なパーサーを構築可能
 
+## 機能
+
+### Cursor & Zipper データ構造
+
+- **Cursor**: 位置追跡機能付きのコレクションナビゲーション
+- **Zipper**: 効率的なリスト走査のためのイミュータブルデータ構造
+- **PersistentListZipper**: 永続化データ構造を使用したメモリ効率的なZipper実装
+
+### パーサーフレームワーク
+
+- 関数型パーサーコンビネーター
+- パース時の"コンテキスト"のサポート (高度なパーサーで使います)
+- コレクションを連続でパースするための`Continuation`
+- 簡単なパーサー合成のための拡張関数
+
+## クイックスタート
+
+### 基本的なCursorの使用方法
+
+```kotlin
+// リストからカーソルを作成
+val list = listOf(1, 2, 3, 4, 5)
+val cursor = list.cursor()
+
+// コレクション内を移動
+val moved = cursor.moveRight(2) // 右に2つ移動
+val back = moved.moveLeft()    // 左に1つ移動
+
+// 現在の要素にアクセス（範囲内の場合）
+cursor.fold(
+  onOutOfBounds = { println("インデックス ${it.index} で範囲外") },
+  onZipper = { println("現在の要素: ${it.peek}") }
+)
+```
+
+### パーサーの使用方法
+
+```kotlin
+// トークンリストでパーサーを使用
+suspend fun parseExample() {
+  val input = "1 + (2 + 3) * 4"
+  val parser = ...
+  val result = parser.parse(input)
+
+  result.fold(
+    { (result, remaining) -> 
+      println("パース結果: $result")
+      println("残り: $remaining")
+    },
+    { (error) ->
+    println("パースエラー: $error")
+    }
+  )
+}
+```
+
+### 簡単なパーサーの組み立て方
+
+文字列からIntをパースする例：
+
+```kotlin
+// 数字パーサーを作成
+val intParser: Lexer<String, Int> =
+  lexer("int parser") {
+    // 符号を取得（オプション）
+    val sign = option { +'+'; 1 } ?: option { +'-'; -1 }
+
+    var ret = 0
+    while (true) {
+      ret = ret * 10 + (option { val c = +Char::isDigit; c.digitToInt() } ?: break)
+    }
+
+    (sign ?: 1) * ret
+  }
+
+// 使用例
+suspend fun main() {
+  listOf("123", "-456", "+789", "abc", "12.34").forEach { input ->
+    intParser.parse(input).fold(
+      { (result, _) -> println("'$input' -> $result") },
+      { error -> println("'$input' -> エラー: $error") },
+    )
+  }
+}
+
+// 出力:
+// '123' -> 123
+// '-456' -> -456
+// '+789' -> 789
+// 'abc' -> 0
+// '12.34' -> 12
+```
+
+## サンプルプロジェクト
+
+リポジトリには、以下をサポートする簡単な電卓の構築を実演するPrattパーサーの実装サンプルが含まれています：
+
+- 基本算術演算（+ - * / ^）
+- 単項演算（+ -）
+- 階乗演算（!）
+- 適切な演算子優先順位
+
+電卓サンプルを実行するには：
+
+```bash
+./gradlew :sample:pratt:run
+```
+
 ## 依存関係
 
 - **Kotlin Multiplatform**: クロスプラットフォーム互換性
-- **Arrow Core**: 関数型プログラミングユーティリティ
+- **ArrowKt (Arrow Core, Arrow FX Coroutines)**: 関数型プログラミングユーティリティと型安全なエラーハンドリング
 - **Kotlinx Collections Immutable**: 永続化データ構造
-- **Kotest**: テストフレームワーク
+- **Kotest**: マルチプラットフォームプロジェクト用テストフレームワーク
 
 ## ビルド方法
 
@@ -129,16 +132,9 @@ suspend fun parseExample() {
 # すべてのモジュールをビルド
 ./gradlew build
 
-# テストを実行
-./gradlew test
-
 # サンプルアプリケーションを実行
 ./gradlew :sample:pratt:run
 ```
-
-## 貢献
-
-貢献を歓迎します！イシューやプルリクエストをお気軽に提出してください。
 
 ## ライセンス
 
