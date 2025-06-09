@@ -4,7 +4,6 @@ import net.japanesehunters.util.collection.Cursor
 import net.japanesehunters.util.collection.OutOfBounds
 import net.japanesehunters.util.collection.cursor
 import net.japanesehunters.util.parse.ContinuationParser
-import net.japanesehunters.util.parse.Parser
 import net.japanesehunters.util.parse.ParsingDsl
 import net.japanesehunters.util.parse.ParsingDslMarker
 import net.japanesehunters.util.parse.map
@@ -12,13 +11,13 @@ import net.japanesehunters.util.parse.mapErr
 import net.japanesehunters.util.parse.or
 import net.japanesehunters.util.parse.parser
 
-typealias Lexer<Out> = Parser<Char, Any, Out>
+typealias Lexer<Err, Out> = ContinuationParser<Char, Any, Err, Out>
 
 typealias LexingDsl<Err, Out> = ParsingDsl<Char, Any, Err, Out>
 
 typealias LexingDslErrorProvider<Err, Out> = ParsingDsl.ErrorProvider<Char, Any, Err, Out>
 
-suspend fun <O> Lexer<O>.parse(input: CharSequence) =
+suspend fun <E, O> Lexer<E, O>.parse(input: CharSequence) =
   with(Any()) { this@parse.parse(input.cursor()) }
 
 fun ignoreCase(str: CharSequence) =
