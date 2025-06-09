@@ -257,7 +257,11 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     >.unaryPlus(): R =
     withError({ _ ->
       throw IllegalStateException("unreachable")
-    }) { +this@unaryPlus }
+    }) {
+      with(ctx) {
+        +this@unaryPlus
+      }
+    }
 
   @Suppress("LEAKED_IN_PLACE_LAMBDA")
   @ParsingDslMarker
@@ -422,7 +426,6 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
       )
     }
 
-  //  @JvmNameJvmOnly("contParserUnaryPlus")
   @ParsingDslMarker
   override suspend operator fun <E, R> ContinuationParser<
     Tok,
@@ -442,7 +445,6 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
   >.unaryPlus(): R =
     parse(ctx) { _, e -> fail(e) }
 
-  //  @JvmNameJvmOnly("contParserCtxFreeUnaryPlus")
   @ParsingDslMarker
   context(ctx: C)
   override suspend fun <C : Any, E, R> ContinuationParser<
