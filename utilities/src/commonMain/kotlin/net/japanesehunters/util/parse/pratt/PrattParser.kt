@@ -42,7 +42,7 @@ fun <Tok : Any, Ast> astParser(
   ledParsers: NonEmptyCollection<LedParser<Tok, Any?, Ast>>,
   cmp: Comparator<Ast>,
 ) = astParser(name) {
-  val nudCtx = NudContext(ctx.exprParser, ctx.minBindingPower)
+  val nudCtx = NudContext(ctx.exprParser, 0)
   val (restNudParser, firstNudParser) = nudParsers.split()!!
   val nud =
     with(nudCtx) {
