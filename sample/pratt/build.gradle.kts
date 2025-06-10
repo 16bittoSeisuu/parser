@@ -7,6 +7,7 @@ plugins {
 dependencies {
   implementation(project(":utilities"))
   implementation(libs.bundles.arrow)
+  testImplementation(libs.bundles.kotest.jvm)
 }
 
 application {
@@ -19,7 +20,7 @@ tasks {
       attributes["Main-Class"] = "MainKt"
     }
   }
-//  shadowJar {
-//    archiveClassifier.set("")
-//  }
+  test {
+    useJUnitPlatform()
+  }
 }
