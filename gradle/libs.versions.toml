@@ -8,8 +8,7 @@ kotlinxImmutableCollections = "0.3.8"
 shadow = "9.0.0-beta15"
 
 kotest = "6.0.0.M3"
-arrow = "2.0.1"
-kotest-arrow = "2.0.0"
+arrow = "2.1.2"
 
 [libraries]
 kotlinxSerializationJson = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
@@ -21,7 +20,6 @@ kotest-runner-jvm = { group = "io.kotest", name = "kotest-runner-junit5-jvm", ve
 kotest-framework = { group = "io.kotest", name = "kotest-framework-engine", version.ref = "kotest" }
 kotest-assertion = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
 kotest-property = { group = "io.kotest", name = "kotest-property", version.ref = "kotest" }
-kotest-arrow = { group = "io.kotest.extensions", name = "kotest-assertions-arrow", version.ref = "kotest-arrow" }
 
 arrow-core = { group = "io.arrow-kt", name = "arrow-core", version.ref = "arrow" }
 arrow-fx-coroutines = { group = "io.arrow-kt", name = "arrow-fx-coroutines", version.ref = "arrow" }
@@ -38,14 +36,12 @@ kotest = [
   "kotest-framework",
   "kotest-assertion",
   "kotest-property",
-  "kotest-arrow",
 ]
 
 kotest-jvm = [
   "kotest-runner-jvm",
   "kotest-assertion",
   "kotest-property",
-  "kotest-arrow"
 ]
 
 arrow = [
