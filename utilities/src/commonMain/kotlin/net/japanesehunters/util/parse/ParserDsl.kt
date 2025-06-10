@@ -128,6 +128,19 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     block: suspend ErrorProvider<Tok, Ctx, Err, Out>.() -> R,
   ): R
 
+  suspend fun <C : Ctx, R> with(
+    context: C,
+    block: suspend C.() -> R,
+  ): R {
+    val temp = ctx
+    ctx = context
+    try {
+      return context.block()
+    } finally {
+      ctx = temp
+    }
+  }
+
   @ParsingDslMarker
   suspend infix fun Cursor<Tok>.zipperOrFail(onError: suspend () -> Err) =
     withError(onError) { this@zipperOrFail.zipperOrFail() }
