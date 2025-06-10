@@ -17,6 +17,7 @@ kotlinxCoroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutine
 kotlinxDatetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinxImmutableCollections = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "kotlinxImmutableCollections" }
 
+kotest-runner-jvm = { group = "io.kotest", name = "kotest-runner-junit5-jvm", version.ref = "kotest" }
 kotest-framework = { group = "io.kotest", name = "kotest-framework-engine", version.ref = "kotest" }
 kotest-assertion = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
 kotest-property = { group = "io.kotest", name = "kotest-property", version.ref = "kotest" }
@@ -38,6 +39,13 @@ kotest = [
   "kotest-assertion",
   "kotest-property",
   "kotest-arrow",
+]
+
+kotest-jvm = [
+  "kotest-runner-jvm",
+  "kotest-assertion",
+  "kotest-property",
+  "kotest-arrow"
 ]
 
 arrow = [
