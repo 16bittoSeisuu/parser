@@ -42,6 +42,7 @@ val parser =
         ),
         cmp = { _, _ -> -1 },
       ) orFail { _ -> "Could not parse expression!" }
+    skipWhitespaces()
     cursor.fold(
       { expr },
       { fail("Could not parse expression!") },
@@ -72,7 +73,7 @@ val floatParser: NudParser<Char, String, Ast> =
     val fracDigits =
       +lexer("digit parser") {
         Char::isDigit orFail { _ -> "Not a float!" }
-      }
+      }.repeat(some)
     val float =
       (intDigits + '.' + fracDigits)
         .joinToString("")
@@ -88,11 +89,12 @@ val stringParser: NudParser<Char, String, Ast> =
     while (true) {
       option {
         +!lexer("end") {
-          '"' orFail { _ -> null }
+          '"' orFail { _ -> }
         }
       } ?: break
       chars += option { +any } ?: break
     }
+    '"' orFail { _ -> "Not a string literal!" }
     val str = chars.joinToString("")
     StringLit(str)
   }
@@ -103,7 +105,7 @@ val parenParser: NudParser<Char, String, Ast> =
     skipWhitespaces()
     val expr =
       with(ctx.resetPower()) {
-        expr orFail { _ -> "Could not parse expression" }
+        expr orFail { _ -> "Could not parse expression!" }
       }
     skipWhitespaces()
     ')' orFail { _ -> "Not a paren expression!" }
@@ -129,9 +131,10 @@ fun prefix(
 ): NudParser<Char, String, Ast> =
   nudParser("$op (unary) parser") {
     op orFail { _ -> "Not a $op (unary) expression!" }
+    println("ctx: $ctx")
     bind(power) { _, _ -> "Insufficient binding power!" }
     skipWhitespaces()
-    val expr = expr orFail { _ -> "Could not parse expression" }
+    val expr = expr orFail { _ -> "Could not parse expression!" }
     factory(expr)
   }
 
@@ -158,7 +161,7 @@ fun infix(
     op orFail { _ -> "Not a $op expression!" }
     skipWhitespaces()
     bind(power, associativity) { _, _ -> "Insufficient binding power!" }
-    val right = expr orFail { _ -> "Could not parse expression" }
+    val right = expr orFail { _ -> "Could not parse expression!" }
     factory(left, right)
   }
 
