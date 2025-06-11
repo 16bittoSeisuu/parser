@@ -1,6 +1,7 @@
 package net.japanesehunters.util.parse
 
 import arrow.core.Either
+import arrow.core.NonEmptyList
 import arrow.core.raise.either
 import net.japanesehunters.util.JvmNameJvmOnly
 import net.japanesehunters.util.collection.Cursor
@@ -355,6 +356,33 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
       ret
     }.getOrNull()
   }
+
+  @ParsingDslMarker
+  suspend fun <E, R> repeat(
+    repeat: IntRange,
+    block: suspend ParsingDsl<Tok, Ctx, Err, R>.() -> R
+  ): List<R> =
+    +parser("$self") {
+      block()
+    }.repeat(repeat)
+
+  @ParsingDslMarker
+  suspend fun <R> repeat(
+    repeat: RepeatOption.MANY,
+    block: suspend ParsingDsl<Tok, Ctx, Err, R>.() -> R
+  ): List<R> =
+    +parser("$self") {
+      block()
+    }.repeat(repeat)
+
+  @ParsingDslMarker
+  suspend fun <R> repeat(
+    repeat: RepeatOption.SOME,
+    block: suspend ParsingDsl<Tok, Ctx, Err, R>.() -> R
+  ): NonEmptyList<R> =
+    +parser("$self") {
+      block()
+    }.repeat(repeat)
 }
 
 private class ParsingDslImpl<Tok : Any, Ctx : Any, Err, Out>(
@@ -538,3 +566,30 @@ private class ParsingDslErrorProviderImpl<Tok : Any, Ctx : Any, Err, Out>(
     >.unaryPlus(): R =
     parse(ctx) { _, e -> fail(e) }
 }
+
+operator fun <Tok : Any> Tok.not():
+  ContinuationParser<Tok, Any, Tok, Any?> =
+  !parser("not $this") { _: Any ->
+    this@not orFail Unit
+  }
+
+operator fun <Tok : Any> Iterable<Tok>.not():
+  ContinuationParser<Tok, Any, Iterable<Tok>, Any?> =
+  !parser<Tok, Any, Any?, Iterable<Tok>>("not $this") { _: Any ->
+    this@not orFail Unit
+  }
+
+@JvmNameJvmOnly("lambdaNot")
+operator fun <Tok : Any> (suspend (Tok) -> Boolean).not():
+  ContinuationParser<Tok, Any, Tok, Any?> =
+  !parser<Tok, Any, Any?, Tok>("not $this") { _: Any ->
+    this@not orFail Unit
+  }
+
+@JvmNameJvmOnly("lambdaIterableNot")
+operator fun <Tok : Any> (suspend (Iterable<Tok>) -> RestMatchResult).not():
+  ContinuationParser<Tok, Any, Iterable<Tok>, Any?> =
+  !parser<Tok, Any, Any?, Iterable<Tok>>("not $this") { _: Any ->
+    this@not orFail Unit
+  }
+

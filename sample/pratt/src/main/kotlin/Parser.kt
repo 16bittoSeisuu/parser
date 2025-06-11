@@ -2,7 +2,7 @@ import arrow.core.nonEmptyListOf
 import net.japanesehunters.util.collection.fold
 import net.japanesehunters.util.parse.ParsingDsl
 import net.japanesehunters.util.parse.lex.any
-import net.japanesehunters.util.parse.lex.lexer
+import net.japanesehunters.util.parse.many
 import net.japanesehunters.util.parse.not
 import net.japanesehunters.util.parse.pratt.Associativity
 import net.japanesehunters.util.parse.pratt.LedParser
@@ -14,7 +14,6 @@ import net.japanesehunters.util.parse.pratt.ledParser
 import net.japanesehunters.util.parse.pratt.left
 import net.japanesehunters.util.parse.pratt.nudParser
 import net.japanesehunters.util.parse.pratt.resetPower
-import net.japanesehunters.util.parse.repeat
 import net.japanesehunters.util.parse.some
 
 val parser =
@@ -52,9 +51,9 @@ val parser =
 val intParser: NudParser<Char, String, Ast> =
   nudParser("int parser") {
     val digits =
-      +lexer("digit parser") {
+      repeat(some) {
         Char::isDigit orFail "Not an integer!"
-      }.repeat(some)
+      }
     val int =
       digits
         .joinToString("")
@@ -66,14 +65,14 @@ val intParser: NudParser<Char, String, Ast> =
 val floatParser: NudParser<Char, String, Ast> =
   nudParser("float parser") {
     val intDigits =
-      +lexer("digit parser") {
+      repeat(some) {
         Char::isDigit orFail "Not a float!"
-      }.repeat(some)
+      }
     '.' orFail "Not a float!"
     val fracDigits =
-      +lexer("digit parser") {
+      repeat(some) {
         Char::isDigit orFail "Not a float!"
-      }.repeat(some)
+      }
     val float =
       (intDigits + '.' + fracDigits)
         .joinToString("")
@@ -85,15 +84,11 @@ val floatParser: NudParser<Char, String, Ast> =
 val stringParser: NudParser<Char, String, Ast> =
   nudParser("string parser") {
     '"' orFail "Not a string literal!"
-    val chars = mutableListOf<Char>()
-    while (true) {
-      option {
-        +!lexer("end") {
-          '"' orFail {}
-        }
-      } ?: break
-      chars += option { +any } ?: break
-    }
+    val chars =
+      repeat(many) {
+        option { +!'"' } ?: fail("")
+        option { +any } ?: fail("")
+      }
     '"' orFail "Not a string literal!"
     val str = chars.joinToString("")
     StringLit(str)
