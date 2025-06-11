@@ -41,7 +41,7 @@ val parser =
           fact,
         ),
         cmp = { _, _ -> -1 },
-      ) orFail { _ -> "Could not parse expression!" }
+      ) orFail "Could not parse expression!"
     skipWhitespaces()
     cursor.fold(
       { expr },
@@ -53,7 +53,7 @@ val intParser: NudParser<Char, String, Ast> =
   nudParser("int parser") {
     val digits =
       +lexer("digit parser") {
-        Char::isDigit orFail { _ -> "Not an integer!" }
+        Char::isDigit orFail "Not an integer!"
       }.repeat(some)
     val int =
       digits
@@ -67,12 +67,12 @@ val floatParser: NudParser<Char, String, Ast> =
   nudParser("float parser") {
     val intDigits =
       +lexer("digit parser") {
-        Char::isDigit orFail { _ -> "Not a float!" }
+        Char::isDigit orFail "Not a float!"
       }.repeat(some)
-    '.' orFail { _ -> "Not a float!" }
+    '.' orFail "Not a float!"
     val fracDigits =
       +lexer("digit parser") {
-        Char::isDigit orFail { _ -> "Not a float!" }
+        Char::isDigit orFail "Not a float!"
       }.repeat(some)
     val float =
       (intDigits + '.' + fracDigits)
@@ -84,31 +84,31 @@ val floatParser: NudParser<Char, String, Ast> =
 
 val stringParser: NudParser<Char, String, Ast> =
   nudParser("string parser") {
-    '"' orFail { _ -> "Not a string literal!" }
+    '"' orFail "Not a string literal!"
     val chars = mutableListOf<Char>()
     while (true) {
       option {
         +!lexer("end") {
-          '"' orFail { _ -> }
+          '"' orFail {}
         }
       } ?: break
       chars += option { +any } ?: break
     }
-    '"' orFail { _ -> "Not a string literal!" }
+    '"' orFail "Not a string literal!"
     val str = chars.joinToString("")
     StringLit(str)
   }
 
 val parenParser: NudParser<Char, String, Ast> =
   nudParser("paren parser") {
-    '(' orFail { _ -> "Not a paren expression!" }
+    '(' orFail "Not a paren expression!"
     skipWhitespaces()
     val expr =
       with(ctx.resetPower()) {
-        expr orFail { _ -> "Could not parse expression!" }
+        expr orFail "Could not parse expression!"
       }
     skipWhitespaces()
-    ')' orFail { _ -> "Not a paren expression!" }
+    ')' orFail "Not a paren expression!"
     Paren(expr)
   }
 
@@ -130,11 +130,11 @@ fun prefix(
   factory: (Ast) -> Ast,
 ): NudParser<Char, String, Ast> =
   nudParser("$op (unary) parser") {
-    op orFail { _ -> "Not a $op (unary) expression!" }
+    op orFail "Not a $op (unary) expression!"
     println("ctx: $ctx")
     bind(power) { _, _ -> "Insufficient binding power!" }
     skipWhitespaces()
-    val expr = expr orFail { _ -> "Could not parse expression!" }
+    val expr = expr orFail "Could not parse expression!"
     factory(expr)
   }
 
@@ -145,7 +145,7 @@ fun postfix(
 ): LedParser<Char, String, Ast> =
   ledParser("$op (unary) parser") {
     skipWhitespaces()
-    op orFail { _ -> "Not a $op (unary) expression!" }
+    op orFail "Not a $op (unary) expression!"
     bind(power, Associativity.LEFT) { _, _ -> "Insufficient binding power!" }
     factory(left)
   }
@@ -158,10 +158,10 @@ fun infix(
 ): LedParser<Char, String, Ast> =
   ledParser("$op parser") {
     skipWhitespaces()
-    op orFail { _ -> "Not a $op expression!" }
+    op orFail "Not a $op expression!"
     skipWhitespaces()
     bind(power, associativity) { _, _ -> "Insufficient binding power!" }
-    val right = expr orFail { _ -> "Could not parse expression!" }
+    val right = expr orFail "Could not parse expression!"
     factory(left, right)
   }
 

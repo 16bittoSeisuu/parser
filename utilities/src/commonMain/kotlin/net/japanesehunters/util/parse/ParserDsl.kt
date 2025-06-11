@@ -96,7 +96,6 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
       Iterable<Tok>,
     >.unaryPlus(): List<Tok>
 
-    //    @JvmNameJvmOnly("contParserUnaryPlus")
     @ParsingDslMarker
     suspend operator fun <E, R> ContinuationParser<
       Tok,
@@ -105,7 +104,6 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
       R,
     >.unaryPlus(): R
 
-    //    @JvmNameJvmOnly("contParserCtxFreeUnaryPlus")
     @ParsingDslMarker
     context(ctx: C)
     suspend operator fun <C : Any, E, R> ContinuationParser<
@@ -117,6 +115,16 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   }
 
   fun fail(error: Err): Nothing
+
+  suspend fun fail(error: suspend () -> Err): Nothing = fail(error())
+
+  suspend fun fail(error: suspend (currentCursor: Cursor<Tok>) -> Err): Nothing =
+    fail(error(cursor))
+
+  suspend fun <R> withError(
+    onError: Err,
+    block: suspend ErrorProvider<Tok, Ctx, Err, Out>.() -> R
+  ): R = withError({ _ -> onError }, block)
 
   suspend fun <R> withError(
     onError: suspend () -> Err,
@@ -142,48 +150,77 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   }
 
   @ParsingDslMarker
+  suspend infix fun Cursor<Tok>.zipperOrFail(onError: Err) =
+    zipperOrFail { _ -> onError }
+
+  @ParsingDslMarker
   suspend infix fun Cursor<Tok>.zipperOrFail(onError: suspend () -> Err) =
-    withError(onError) { this@zipperOrFail.zipperOrFail() }
+    zipperOrFail { _ -> onError() }
 
   suspend infix fun Cursor<Tok>.zipperOrFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { this@zipperOrFail.zipperOrFail() }
 
   @ParsingDslMarker
+  suspend infix fun Tok.orFail(onError: Err) =
+    orFail { _ -> onError }
+
+  @ParsingDslMarker
   suspend infix fun Tok.orFail(onError: suspend () -> Err) =
-    withError(onError) { +this@orFail }
+    orFail { _ -> onError() }
 
   @ParsingDslMarker
   suspend infix fun Tok.orFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { +this@orFail }
 
   @ParsingDslMarker
+  suspend infix fun Iterable<Tok>.orFail(onError: Err) =
+    orFail { _ -> onError }
+
+  @ParsingDslMarker
   suspend infix fun Iterable<Tok>.orFail(onError: suspend () -> Err) =
-    withError(onError) { +this@orFail }
+    orFail { _ -> onError() }
 
   @ParsingDslMarker
   suspend infix fun Iterable<Tok>.orFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { +this@orFail }
 
+  @JvmNameJvmOnly("lambdaOrFail")
   @ParsingDslMarker
-  suspend infix fun ((Tok) -> Boolean).orFail(onError: suspend () -> Err) =
+  suspend infix fun (suspend (Tok) -> Boolean).orFail(onError: Err) =
+    orFail { _ -> onError }
+
+  @JvmNameJvmOnly("lambdaOrFail")
+  @ParsingDslMarker
+  suspend infix fun (suspend (Tok) -> Boolean).orFail(onError: suspend () -> Err) =
+    orFail { _ -> onError() }
+
+  @JvmNameJvmOnly("lambdaOrFail")
+  @ParsingDslMarker
+  suspend infix fun (suspend (Tok) -> Boolean).orFail(onError: suspend (Cursor<Tok>) -> Err) =
     withError(onError) { +this@orFail }
 
-  @ParsingDslMarker
-  suspend infix fun ((Tok) -> Boolean).orFail(onError: suspend (Cursor<Tok>) -> Err) =
-    withError(onError) { +this@orFail }
-
+  @JvmNameJvmOnly("lambdaIterableOrFail")
   @ParsingDslMarker
   suspend infix fun (
   suspend (rest: Iterable<Tok>) -> RestMatchResult
   ).orFail(
-    onError: () -> Err,
-  ) = withError(onError) { +this@orFail }
+    onError: Err
+  ) = orFail { _ -> onError }
 
+  @JvmNameJvmOnly("lambdaIterableOrFail")
   @ParsingDslMarker
   suspend infix fun (
   suspend (rest: Iterable<Tok>) -> RestMatchResult
   ).orFail(
-    onError: (Cursor<Tok>) -> Err,
+    onError: suspend () -> Err,
+  ) = orFail { _ -> onError() }
+
+  @JvmNameJvmOnly("lambdaIterableOrFail")
+  @ParsingDslMarker
+  suspend infix fun (
+  suspend (rest: Iterable<Tok>) -> RestMatchResult
+  ).orFail(
+    onError: suspend (Cursor<Tok>) -> Err,
   ) = withError(onError) { +this@orFail }
 
   sealed interface RestMatchResult {
@@ -200,8 +237,13 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
 
   @JvmNameJvmOnly("parserTokOrFail")
   @ParsingDslMarker
+  suspend infix fun Parser<Tok, Ctx, Tok>.orFail(onError: Err) =
+    orFail { _ -> onError }
+
+  @JvmNameJvmOnly("parserTokOrFail")
+  @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Tok>.orFail(onError: suspend () -> Err) =
-    withError(onError) { +this@orFail }
+    orFail { _ -> onError() }
 
   @JvmNameJvmOnly("parserTokOrFail")
   @ParsingDslMarker
@@ -211,9 +253,14 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
 
   @JvmNameJvmOnly("parserIterableTokOrFail")
   @ParsingDslMarker
+  suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(onError: Err) =
+    orFail { _ -> onError }
+
+  @JvmNameJvmOnly("parserIterableTokOrFail")
+  @ParsingDslMarker
   suspend infix fun Parser<Tok, Ctx, Iterable<Tok>>.orFail(
     onError: suspend () -> Err,
-  ) = withError(onError) { +this@orFail }
+  ) = orFail { _ -> onError() }
 
   @JvmNameJvmOnly("parserIterableTokOrFail")
   @ParsingDslMarker
@@ -224,8 +271,14 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   @JvmNameJvmOnly("contParserOrFail")
   @ParsingDslMarker
   suspend infix fun <E, R> ContinuationParser<Tok, Ctx, E, R>.orFail(
+    onError: Err,
+  ) = orFail { _ -> onError }
+
+  @JvmNameJvmOnly("contParserOrFail")
+  @ParsingDslMarker
+  suspend infix fun <E, R> ContinuationParser<Tok, Ctx, E, R>.orFail(
     onError: suspend () -> Err,
-  ) = withError(onError) { +this@orFail }
+  ) = orFail { _ -> onError() }
 
   @JvmNameJvmOnly("contParserOrFail")
   @ParsingDslMarker
@@ -237,8 +290,15 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
   @ParsingDslMarker
   context(ctx: C)
   suspend infix fun <C : Any, E, R> ContinuationParser<Tok, C, E, R>.orFail(
+    onError: Err,
+  ) = orFail { _ -> onError }
+
+  @JvmNameJvmOnly("contParserCtxFreeOrFail")
+  @ParsingDslMarker
+  context(ctx: C)
+  suspend infix fun <C : Any, E, R> ContinuationParser<Tok, C, E, R>.orFail(
     onError: suspend () -> Err,
-  ) = withError(onError) { +this@orFail }
+  ) = orFail { _ -> onError() }
 
   @JvmNameJvmOnly("contParserCtxFreeOrFail")
   @ParsingDslMarker
@@ -289,7 +349,7 @@ interface ParsingDsl<Tok : Any, Ctx : Any, Err, Out> {
     class DummyError
     return catch {
       val ret =
-        withError({ _ -> DummyError() }) {
+        withError(DummyError()) {
           block()
         }
       ret
